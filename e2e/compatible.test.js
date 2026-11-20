@@ -46,6 +46,7 @@ test('configures an external compatible model, protects its key and supports tex
     await page.locator('#provider').selectOption('compatible');
     await page.locator('#model').fill('modelo-prueba');
     await page.locator('#compatible-endpoint').fill(endpoint);
+    await page.locator('.utilities summary').click();
     await page.locator('#credentials-button').click();
     await page.locator('#compatible-key').fill('test-compatible-secret');
     await page.locator('#compatible-key-form button[type=submit]').click();
@@ -73,6 +74,7 @@ test('configures an external compatible model, protects its key and supports tex
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('otro servidor'));
     assert.equal(otherRequests.length, 0);
 
+    await page.locator('.utilities summary').click();
     await page.locator('#credentials-button').click();
     await page.locator('#compatible-key-clear').click();
     await page.waitForFunction(() => document.querySelector('#credentials-message').textContent.includes('eliminada'));

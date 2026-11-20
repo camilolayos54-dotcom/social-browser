@@ -55,6 +55,7 @@ test('an MCP agent can prepare a form and needs confirmation for an unchanged su
     response = await call('fill_control', { id: field.id, value: 'Servicio de trasteos disponible' });
     assert.equal(response.isError, false);
     await page.waitForFunction(() => document.querySelector('.tab')?.textContent.includes('•'));
+    await page.locator('.utilities summary').click();
     await page.locator('#memory-mode').click();
     await page.locator('#confirm-memory').click();
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: '+', exact: true }).click();
@@ -122,6 +123,7 @@ test('an MCP agent can prepare a form and needs confirmation for an unchanged su
     response = await call('fill_control', { id: field.id, value: 'control obsoleto' });
     assert.equal(response.isError, true);
 
+    await page.locator('.utilities summary').click();
     await page.locator('#credentials-button').click();
     await page.locator('#x-key').fill('test-session-token');
     await page.locator('#x-key-form button[type=submit]').click();
