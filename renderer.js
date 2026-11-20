@@ -518,7 +518,7 @@ $('address-form').onsubmit = e => { e.preventDefault(); const value = $('url').v
 $('back').onclick = () => { const view = currentView(); if (view.canGoBack()) view.goBack(); };
 $('forward').onclick = () => { const view = currentView(); if (view.canGoForward()) view.goForward(); };
 $('reload').onclick = () => currentView().reload();
-$('toggle-ai').onclick = () => { $('notes-panel').classList.add('hidden'); $('assistant').classList.toggle('hidden'); };
+$('toggle-ai').onclick = () => { $('assistant').classList.toggle('hidden'); };
 const defaultModels = { ollama: 'llama3.2', openai: 'gpt-4.1-mini', compatible: '' };
 const savedSettings = state.aiSettings && typeof state.aiSettings === 'object' ? state.aiSettings : {};
 const savedModels = savedSettings.models && typeof savedSettings.models === 'object' ? savedSettings.models : {};

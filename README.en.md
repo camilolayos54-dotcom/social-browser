@@ -62,3 +62,7 @@ Do not commit keys, cookies, profiles, user data, `.env` files, or agent descrip
 ## Notes and reminders
 
 Open “Notas y recordatorios” under Acciones or “Notas” in the top bar. Create notes with a title or body, edit them, and delete them; each profile keeps its own notes locally. You can set a local date and time for an in-app reminder and, where supported, a desktop notification. Reminders are checked while the app is open; reminders that become due while it is closed appear when it is reopened. No notifications are sent while the app is closed. The menu bar hides automatically and can be shown by pressing Alt (on supported systems).
+
+## Markdown workspace
+
+Open “Notas” for the note explorer, editor, and preview. Save each note with **Guardar**; pending changes are saved when switching notes or closing the workspace. Files are stored in `notes/<profile-id>/<note-id>.md` under Electron's user data directory (on Linux, usually `~/.config/social-browser/`). The editor footer shows the full path. Notes from the previous version migrate on startup and retain their reminders. Preview supports headings, lists, bold, italics, and code; the file retains the complete Markdown text. If the file changes externally while editing, the app rejects the write to avoid overwriting it: use “Descartar cambios” to reload.

@@ -62,3 +62,7 @@ No subas claves, cookies, perfiles, datos de usuario, archivos `.env` ni descrip
 ## Notas y recordatorios
 
 Abre «Notas y recordatorios» en Acciones o «Notas» en la barra superior. Crea notas con título o texto, edítalas y elimínalas; cada perfil conserva sus propias notas localmente. Puedes indicar una fecha y hora local para recibir un aviso en la aplicación y, cuando el sistema lo permita, una notificación de escritorio. Los recordatorios se comprueban mientras la aplicación está abierta; los que vencen mientras está cerrada se muestran al iniciarla de nuevo. No se envían notificaciones cuando la aplicación está cerrada. La barra de menú se oculta automáticamente y se muestra al pulsar Alt (en sistemas compatibles).
+
+## Ventana Markdown
+
+Abre «Notas» para ver el explorador y el editor con vista previa. Guarda cada nota con **Guardar**; al cambiar de nota o cerrar la ventana se guardan los cambios pendientes. Los archivos se guardan en `notes/<id-del-perfil>/<id-de-la-nota>.md` dentro de la carpeta de datos de Electron (en Linux, normalmente `~/.config/social-browser/`). La ruta completa aparece en el pie del editor. Las notas creadas con la versión anterior se migran al abrir la aplicación y conservan sus recordatorios. La vista previa admite títulos, listas, negrita, cursiva y código; el archivo conserva el texto Markdown completo. Si el archivo cambia fuera de la aplicación mientras lo editas, se rechaza la escritura para evitar sobrescribirlo: usa «Descartar cambios» para volver a cargarlo.

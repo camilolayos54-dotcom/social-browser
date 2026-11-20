@@ -148,3 +148,9 @@ ipcMain.handle('show-reminder', (event, reminder) => {
   new Notification({ title: reminder.title, body: reminder.body }).show();
   return true;
 });
+
+const noteFiles = require('./note-files');
+function checkNoteSender(event) { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); }
+ipcMain.handle('note-read', (event, profileId, noteId) => { checkNoteSender(event); return noteFiles.read(app.getPath('userData'), profileId, noteId); });
+ipcMain.handle('note-write', (event, profileId, noteId, text, revision) => { checkNoteSender(event); return noteFiles.write(app.getPath('userData'), profileId, noteId, text, revision); });
+ipcMain.handle('note-remove', (event, profileId, noteId, revision) => { checkNoteSender(event); return noteFiles.remove(app.getPath('userData'), profileId, noteId, revision); });

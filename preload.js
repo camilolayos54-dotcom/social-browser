@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  readNote: (profileId, noteId) => ipcRenderer.invoke('note-read', profileId, noteId),
+  writeNote: (profileId, noteId, text, revision) => ipcRenderer.invoke('note-write', profileId, noteId, text, revision),
+  removeNote: (profileId, noteId, revision) => ipcRenderer.invoke('note-remove', profileId, noteId, revision),
   showReminder: reminder => ipcRenderer.invoke('show-reminder', reminder),
   ask: request => ipcRenderer.invoke('ask-ai', request),
   cancel: jobId => ipcRenderer.send('cancel-ai', jobId),
