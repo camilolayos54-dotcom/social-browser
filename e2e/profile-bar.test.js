@@ -14,12 +14,12 @@ test('all profiles remain visible and can be selected and renamed from the bar',
     app = await electron.launch({ executablePath: require('electron'), args });
     const page = await app.firstWindow();
     await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].setSize(900, 800));
-    for (const name of ['Ventas', 'Proyecto creativo', 'Equipo social', 'Clientes', 'Comunidad']) {
+    for (const name of ['Ventas', 'Proyecto creativo', 'Equipo social', 'Clientes', 'Comunidad', 'Perfil de prueba con nombre largo y detallado para la barra']) {
       await page.locator('#add-profile').click();
       await page.locator('#profile-name').fill(name);
       await page.locator('#profile-form button[type=submit]').click();
     }
-    assert.equal(await page.locator('#profiles button').count(), 6);
+    assert.equal(await page.locator('#profiles button').count(), 7);
     for (const button of await page.locator('#profiles button').all()) {
       assert.equal(await button.isVisible(), true);
       assert.equal(await button.evaluate(e => { const b = e.getBoundingClientRect(), header = e.closest('header').getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.top >= header.top && b.bottom <= header.bottom; }), true);
