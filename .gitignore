@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+*.sock
+credential-*.bin
+agent-connection.json
+agent-*.json.tmp
+profiles/
+user-data/
+.DS_Store

@@ -1,0 +1,23 @@
+{
+  "name": "social-browser",
+  "version": "1.0.0",
+  "description": "Desktop browser for social networks with an AI assistant",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 e2e/*.test.js"
+  },
+  "keywords": [],
+  "author": "Julian García",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^44.11.5",
+    "playwright-core": "^1.65.1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  }
+}

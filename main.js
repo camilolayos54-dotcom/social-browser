@@ -1,0 +1,129 @@
+const { app, BrowserWindow, ipcMain, session, safeStorage } = require('electron');
+const path = require('path');
+
+if (process.platform === 'linux') app.setDesktopName('social-browser.desktop');
+
+let mainWindow;
+let credentials;
+const configuredSessions = new WeakSet();
+const sessionPartitions = new WeakMap();
+app.whenReady().then(() => {
+  credentials = new (require('./credentials').CredentialStore)(app.getPath('userData'), safeStorage);
+  mainWindow = new BrowserWindow({ width: 1440, height: 900, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
+  mainWindow.webContents.on('will-attach-webview', (event, prefs, params) => {
+    prefs.preload = path.join(__dirname, 'guest-preload.js');
+    prefs.nodeIntegration = false;
+    prefs.contextIsolation = true;
+    prefs.sandbox = true;
+    prefs.webSecurity = true;
+    prefs.webviewTag = false;
+    if (!/^persist:social-[a-z0-9-]+$/.test(params.partition || '') || !/^https?:\/\//i.test(params.src || '')) { event.preventDefault(); return; }
+    const browsingSession = session.fromPartition(params.partition);
+    sessionPartitions.set(browsingSession, params.partition);
+    if (!configuredSessions.has(browsingSession)) {
+      browsingSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'fullscreen' || permission === 'clipboard-sanitized-write'));
+      browsingSession.setPermissionCheckHandler((_contents, permission) => permission === 'fullscreen' || permission === 'clipboard-sanitized-write');
+      configuredSessions.add(browsingSession);
+    }
+  });
+  function configureBrowserContent(contents) {
+    contents.setWindowOpenHandler(details => {
+      const { url, disposition, frameName, postBody } = details;
+      const webUrl = /^https?:\/\//i.test(url);
+      if (!webUrl && url !== 'about:blank') return { action: 'deny' };
+      const isPopup = url === 'about:blank' || disposition === 'new-window' || Boolean(frameName) || Boolean(postBody);
+      if (isPopup) {
+        return { action: 'allow', overrideBrowserWindowOptions: {
+          width: 700, height: 750, minWidth: 360, minHeight: 300, frame: true, show: true,
+          webPreferences: { session: contents.session, sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, webviewTag: false }
+        } };
+      }
+      if (!mainWindow.isDestroyed()) mainWindow.webContents.send('open-tab', { url, partition: sessionPartitions.get(contents.session), sourceId: contents.id, disposition });
+      return { action: 'deny' };
+    });
+    contents.on('did-create-window', child => configureBrowserContent(child.webContents));
+    const restrictNavigation = (event, url) => { if (!/^https?:\/\//i.test(url) && url !== 'about:blank') event.preventDefault(); };
+    contents.on('will-navigate', restrictNavigation);
+    contents.on('will-redirect', restrictNavigation);
+  }
+  mainWindow.webContents.on('did-attach-webview', (_, guest) => configureBrowserContent(guest));
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.loadFile('index.html');
+});
+app.on('window-all-closed', () => app.quit());
+const { ask } = require('./assistant');
+const { bindCredential, credentialForEndpoint } = require('./compatible-provider');
+const activeRequests = new Map();
+ipcMain.handle('ask-ai', async (event, request) => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  const { prompt, model, provider, jobId, continuation, results = [], endpoint, compatibleTools } = request;
+  if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20000 || typeof model !== 'string' || !model.trim() || model.length > 200 || typeof jobId !== 'string' || jobId.length > 80 || !Array.isArray(results)) throw new Error('Solicitud inválida');
+  const controller = new AbortController();
+  activeRequests.set(jobId, controller);
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  try {
+    let apiKey = '';
+    if (provider === 'openai') apiKey = credentials.get('openai');
+    if (provider === 'compatible') apiKey = credentialForEndpoint(credentials, endpoint);
+    return await ask({ prompt, model, provider, continuation, results, apiKey, endpoint, compatibleTools, signal: controller.signal });
+  }
+  finally { clearTimeout(timeout); if (activeRequests.get(jobId) === controller) activeRequests.delete(jobId); }
+});
+ipcMain.on('cancel-ai', (event, jobId) => {
+  if (event.sender === mainWindow.webContents && typeof jobId === 'string') activeRequests.get(jobId)?.abort();
+});
+
+const { searchRecentPosts } = require('./search');
+const activeSearches = new Map();
+ipcMain.handle('search-x', async (event, { query, jobId }) => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  if (typeof jobId !== 'string' || jobId.length > 80 || activeSearches.has(jobId)) throw new Error('Búsqueda inválida');
+  const controller = new AbortController();
+  activeSearches.set(jobId, controller);
+  let timedOut = false;
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 300000);
+  try {
+    return await searchRecentPosts({ query, token: credentials.get('x'), signal: controller.signal, onPage: posts => {
+      if (!mainWindow.isDestroyed()) mainWindow.webContents.send('search-x-page', { jobId, posts });
+    } });
+  } catch (error) {
+    if (timedOut) throw new Error('La búsqueda alcanzó el límite de cinco minutos.');
+    throw error;
+  } finally { clearTimeout(timeout); activeSearches.delete(jobId); }
+});
+ipcMain.on('cancel-search-x', (event, jobId) => {
+  if (event.sender === mainWindow.webContents && typeof jobId === 'string') activeSearches.get(jobId)?.abort();
+});
+
+const { AgentBridge } = require('./agent-bridge');
+let agentBridge;
+app.whenReady().then(() => {
+  agentBridge = new AgentBridge(app.getPath('userData'), (channel, payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+  });
+});
+app.on('before-quit', () => agentBridge?.stop());
+ipcMain.handle('enable-agent', async (event, profile) => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  return agentBridge.start(profile.id, profile.name, profile.allProfiles === true);
+});
+ipcMain.handle('disable-agent', event => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  agentBridge.stop();
+});
+ipcMain.on('agent-result', (event, { id, result }) => {
+  if (event.sender === mainWindow.webContents && typeof id === 'string') agentBridge.respond(id, result);
+});
+
+ipcMain.handle('credentials-status', event => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  return { openai: credentials.status('openai'), x: credentials.status('x'), compatible: credentials.status('compatible') };
+});
+ipcMain.handle('credentials-set', (event, { service, value, endpoint }) => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  return credentials.set(service, service === 'compatible' ? bindCredential(endpoint, value) : value);
+});
+ipcMain.handle('credentials-clear', (event, service) => {
+  if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  return credentials.clear(service);
+});
