@@ -81,7 +81,7 @@ test('reads visible results and discovers new controls in a nested scroll area',
     const inbox = await client.callTool({ name: 'open_inbox', arguments: { network: 'WhatsApp' } });
     assert.equal(inbox.isError, false, JSON.stringify(inbox));
     assert(inbox.content[0].text.includes('https://web.whatsapp.com/'));
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Segunda empresa');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Segunda empresa');
     const pinnedTabs = await page.evaluate(() => JSON.parse(localStorage.getItem('social-state')).profiles[0].tabs);
     assert.equal(pinnedTabs.at(-1).url, 'https://web.whatsapp.com/');
     const listed = await client.callTool({ name: 'list_tabs', arguments: {} });
@@ -96,13 +96,13 @@ test('reads visible results and discovers new controls in a nested scroll area',
     const newTab = JSON.parse(afterCreate.content[0].text).tabs.find(item => item.url === 'https://example.com/example');
     assert(newTab);
     assert.equal((await client.callTool({ name: 'close_tab', arguments: { id: newTab.id } })).isError, false);
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Segunda empresa');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Segunda empresa');
     await page.locator('#open-inbox').click();
     await page.locator('#inbox-network').selectOption('Instagram');
     await page.locator('#inbox-form button[type=submit]').click();
     const manualTabs = await page.evaluate(() => JSON.parse(localStorage.getItem('social-state')).profiles[1].tabs);
     assert(manualTabs.at(-1).url.startsWith('https://www.instagram.com/'));
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(0).click();
     await page.locator('#opportunities-button').click();
     assert.equal(await page.locator('#opportunities-list article').count(), 1);
     await page.locator('#close-opportunities').click();

@@ -59,20 +59,20 @@ test('the integrated assistant reads a page and saves a source-linked opportunit
     await page.locator('#add-profile').click();
     await page.locator('#profile-name').fill('Empresa B');
     await page.locator('#profile-form button[type=submit]').click();
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(0).click();
     await page.locator('#prompt').fill('Abre Facebook con el perfil Empresa B');
     await page.locator('#chat-form button[type=submit]').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('Solicitud terminada en Empresa B'));
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Empresa B');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Empresa B');
     assert.equal(await page.locator('#url').inputValue(), 'https://www.facebook.com');
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(0).click();
     const before = await page.evaluate(() => JSON.parse(localStorage.getItem('social-state')).profiles.map(item => item.tabs.length));
     await page.locator('#prompt').fill('Abre Facebook con el perfil inexistente');
     await page.locator('#chat-form button[type=submit]').click();
     await page.waitForFunction(() => document.querySelector('#conversation').value.includes('No encontré el perfil'));
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('social-state')).profiles.map(item => item.tabs.length));
     assert.deepEqual(after, before);
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Mi negocio');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Mi negocio');
     const logged = await app.evaluate(() => global.lastAssistantToolResults.map(item => item.content));
     assert(logged.some(text => text.includes('acción omitida')));
 

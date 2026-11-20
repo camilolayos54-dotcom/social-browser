@@ -131,8 +131,14 @@ function enforceMemoryLimit(protectedId) {
   }
 }
 function render() {
-  $('profiles').replaceChildren(...state.profiles.map((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = p.name; return o; }));
-  $('profiles').value = state.profile;
+  $('profiles').replaceChildren(...state.profiles.map((p, i) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'profile-tab'; button.textContent = p.name;
+    button.setAttribute('aria-pressed', String(i === state.profile));
+    button.title = `Cambiar al perfil ${p.name}`;
+    button.onclick = () => { if (state.profile !== i) { state.profile = i; render(); $('profiles').querySelector('[aria-pressed="true"]')?.focus(); } };
+    return button;
+  }));
   updateOpportunityCount();
   $('url').value = tab().url;
   $('conversation').value = profile().draft || '';
@@ -153,7 +159,6 @@ function render() {
 function openTab(url) { profile().tabs.push(newTab(url)); profile().activeTab = profile().tabs.length - 1; render(); }
 function currentView() { return views.get(tab().id); }
 Object.entries(networks).forEach(([name, url]) => { const b = document.createElement('button'); b.textContent = name; b.onclick = () => openTab(url); $('shortcuts').append(b); });
-$('profiles').onchange = e => { state.profile = Number(e.target.value); render(); };
 let profileBeingRenamed = null;
 $('add-profile').onclick = () => { profileBeingRenamed = null; $('profile-dialog-title').textContent = 'Nuevo perfil'; $('profile-name').value = ''; $('profile-dialog').showModal(); };
 $('rename-profile').onclick = () => { profileBeingRenamed = profile(); $('profile-dialog-title').textContent = 'Renombrar perfil'; $('profile-name').value = profileBeingRenamed.name; $('profile-dialog').showModal(); };

@@ -34,7 +34,7 @@ test('profile renames preserve sessions, login popups and background links stay 
     await page.locator('#rename-profile').click();
     await page.locator('#profile-name').fill('Empresa A');
     await page.locator('#profile-form button[type=submit]').click();
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Empresa A');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Empresa A');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('social-state')).profiles[0].id), original);
     const opened = await app.evaluate(async ({ webContents }, target) => {
       const guest = webContents.getAllWebContents().find(contents => contents.getURL() === target);
@@ -61,17 +61,17 @@ test('profile renames preserve sessions, login popups and background links stay 
       await guest.executeJavaScript("document.querySelector('#new-tab').click()", true);
     }, url);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('social-state')).profiles[0].tabs.length === 2);
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Empresa B');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Empresa B');
     assert.equal(await page.locator('.tab-wrap').count(), 1);
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(0).click();
     assert.equal(await page.locator('.tab-wrap').count(), 2);
     await page.locator('#url').fill('http://127.0.0.1:1/');
     await page.locator('#address-form').dispatchEvent('submit');
     await page.waitForFunction(() => document.querySelector('#page-status').textContent.includes('No se pudo cargar'));
     await page.waitForTimeout(150);
     assert((await page.locator('#page-status').innerText()).includes('No se pudo cargar'));
-    await page.locator('#profiles').selectOption('1');
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(1).click();
+    await page.locator('#profiles button').nth(0).click();
     assert((await page.locator('#page-status').innerText()).includes('No se pudo cargar'));
     assert.equal(await page.locator('#url').inputValue(), 'http://127.0.0.1:1/');
     await page.locator('#url').fill(url);
@@ -81,8 +81,8 @@ test('profile renames preserve sessions, login popups and background links stay 
     await app.close(); app = null;
     app = await electron.launch({ executablePath: require('electron'), args });
     const reopened = await app.firstWindow();
-    assert.equal(await reopened.locator('#profiles option').count(), 2);
-    assert.equal(await reopened.locator('#profiles option').first().textContent(), 'Empresa A');
+    assert.equal(await reopened.locator('#profiles button').count(), 2);
+    assert.equal(await reopened.locator('#profiles button').first().textContent(), 'Empresa A');
     const restored = await app.evaluate(async ({ session }, id) => session.fromPartition(`persist:social-${id}`).cookies.get({ name: 'oauth' }), original);
     const isolated = await app.evaluate(async ({ session }, id) => session.fromPartition(`persist:social-${id}`).cookies.get({ name: 'oauth' }), second);
     assert.equal(restored[0].value, 'connected');

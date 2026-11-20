@@ -34,11 +34,11 @@ test('X search continues after closing its panel and stays bound to its profile'
     await page.locator('#profile-name').fill('Empresa B');
     await page.locator('#profile-form button[type=submit]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('social-state')).profiles[0].xSearch?.status === 'completed');
-    assert.equal(await page.locator('#profiles option:checked').textContent(), 'Empresa B');
+    assert.equal(await page.locator('#profiles button[aria-pressed=true]').textContent(), 'Empresa B');
     await page.locator('#search-x').click();
     assert.equal(await page.locator('#x-results article').count(), 0);
     await page.locator('#close-x').click();
-    await page.locator('#profiles').selectOption('0');
+    await page.locator('#profiles button').nth(0).click();
     await page.locator('#search-x').click();
     assert.equal(await page.locator('#x-results article').count(), 1);
     assert((await page.locator('#x-status').innerText()).includes('terminada'));

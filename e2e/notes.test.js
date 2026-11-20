@@ -34,7 +34,7 @@ test('Markdown notes persist, migrate, preview, respect profiles and preserve re
     await page.locator('#profile-form button[type=submit]').click();
     await page.locator('#notes-button').click();
     assert.equal(await page.locator('.vault-note').count(), 0);
-    await page.locator('#close-notes').click(); await page.locator('#profiles').selectOption('0');
+    await page.locator('#close-notes').click(); await page.locator('#profiles button').nth(0).click();
     await page.locator('#notes-button').click();
     assert.equal(await page.locator('#note-title').inputValue(), 'Idea inicial');
     await page.locator('#note-reminder').fill('2000-01-01T12:00'); await page.locator('#save-note').click();
