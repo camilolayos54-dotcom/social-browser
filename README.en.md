@@ -58,3 +58,7 @@ Do not commit keys, cookies, profiles, user data, `.env` files, or agent descrip
 ## License
 
 [MIT](LICENSE), copyright © 2026 Julian García. You may use, modify, and redistribute the software, including commercially, provided the copyright and permission notices are retained in copies or substantial portions.
+
+## Notes and reminders
+
+Open “Notas y recordatorios” under Acciones or “Notas” in the top bar. Create notes with a title or body, edit them, and delete them; each profile keeps its own notes locally. You can set a local date and time for an in-app reminder and, where supported, a desktop notification. Reminders are checked while the app is open; reminders that become due while it is closed appear when it is reopened. No notifications are sent while the app is closed. The menu bar hides automatically and can be shown by pressing Alt (on supported systems).

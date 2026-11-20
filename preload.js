@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  showReminder: reminder => ipcRenderer.invoke('show-reminder', reminder),
   ask: request => ipcRenderer.invoke('ask-ai', request),
   cancel: jobId => ipcRenderer.send('cancel-ai', jobId),
   searchX: request => ipcRenderer.invoke('search-x', request),

@@ -58,3 +58,7 @@ No subas claves, cookies, perfiles, datos de usuario, archivos `.env` ni descrip
 ## Licencia
 
 [MIT](LICENSE), copyright © 2026 Julian García. Permite usar, modificar y redistribuir el software, incluso comercialmente, siempre que se conserve el aviso de copyright y la licencia en las copias o partes sustanciales.
+
+## Notas y recordatorios
+
+Abre «Notas y recordatorios» en Acciones o «Notas» en la barra superior. Crea notas con título o texto, edítalas y elimínalas; cada perfil conserva sus propias notas localmente. Puedes indicar una fecha y hora local para recibir un aviso en la aplicación y, cuando el sistema lo permita, una notificación de escritorio. Los recordatorios se comprueban mientras la aplicación está abierta; los que vencen mientras está cerrada se muestran al iniciarla de nuevo. No se envían notificaciones cuando la aplicación está cerrada. La barra de menú se oculta automáticamente y se muestra al pulsar Alt (en sistemas compatibles).

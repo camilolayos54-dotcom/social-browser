@@ -1,15 +1,26 @@
-const { app, BrowserWindow, ipcMain, session, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, session, safeStorage, Notification } = require('electron');
 const path = require('path');
 
 if (process.platform === 'linux') app.setDesktopName('social-browser.desktop');
 
 let mainWindow;
 let credentials;
+// Toggle the native menu for a standalone Alt press, including inside webviews.
+function installAltMenu(contents) {
+  if (process.platform === 'darwin') return;
+  contents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Alt' && !input.isAutoRepeat && !input.control && !input.shift && !input.meta) {
+      event.preventDefault();
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setMenuBarVisibility(!mainWindow.isMenuBarVisible());
+    }
+  });
+}
 const configuredSessions = new WeakSet();
 const sessionPartitions = new WeakMap();
 app.whenReady().then(() => {
   credentials = new (require('./credentials').CredentialStore)(app.getPath('userData'), safeStorage);
-  mainWindow = new BrowserWindow({ width: 1440, height: 900, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 900, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
+  installAltMenu(mainWindow.webContents);
   mainWindow.webContents.on('will-attach-webview', (event, prefs, params) => {
     prefs.preload = path.join(__dirname, 'guest-preload.js');
     prefs.nodeIntegration = false;
@@ -27,6 +38,7 @@ app.whenReady().then(() => {
     }
   });
   function configureBrowserContent(contents) {
+    installAltMenu(contents);
     contents.setWindowOpenHandler(details => {
       const { url, disposition, frameName, postBody } = details;
       const webUrl = /^https?:\/\//i.test(url);
@@ -126,4 +138,13 @@ ipcMain.handle('credentials-set', (event, { service, value, endpoint }) => {
 ipcMain.handle('credentials-clear', (event, service) => {
   if (event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
   return credentials.clear(service);
+});
+
+// Only the application shell can request a local reminder notification.
+ipcMain.handle('show-reminder', (event, reminder) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado');
+  if (!reminder || typeof reminder.title !== 'string' || typeof reminder.body !== 'string' || reminder.title.length > 160 || reminder.body.length > 500) throw new Error('Recordatorio inválido');
+  if (!Notification.isSupported()) return false;
+  new Notification({ title: reminder.title, body: reminder.body }).show();
+  return true;
 });
