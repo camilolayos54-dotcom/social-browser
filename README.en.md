@@ -66,3 +66,5 @@ Open “Notas y recordatorios” under Acciones or “Notas” in the top bar. C
 ## Markdown workspace
 
 Open “Notas” for the note explorer, editor, and preview. Save each note with **Guardar**; pending changes are saved when switching notes or closing the workspace. Files are stored in `notes/<profile-id>/<note-id>.md` under Electron's user data directory (on Linux, usually `~/.config/social-browser/`). The editor footer shows the full path. Notes from the previous version migrate on startup and retain their reminders. Preview supports headings, lists, bold, italics, and code; the file retains the complete Markdown text. If the file changes externally while editing, the app rejects the write to avoid overwriting it: use “Descartar cambios” to reload.
+
+The sidebars can be minimized with their header controls and expanded again from their icon rails. The left rail keeps networks and actions accessible; the right rail offers assistant shortcuts. Both sidebar states are remembered locally.

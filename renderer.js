@@ -158,7 +158,13 @@ function render() {
 }
 function openTab(url) { profile().tabs.push(newTab(url)); profile().activeTab = profile().tabs.length - 1; render(); }
 function currentView() { return views.get(tab().id); }
-Object.entries(networks).forEach(([name, url]) => { const b = document.createElement('button'); b.textContent = name; b.onclick = () => openTab(url); $('shortcuts').append(b); });
+const networkIcons = { Facebook: 'f', Instagram: '◎', Messenger: 'ϟ', WhatsApp: '◉', X: '𝕏', LinkedIn: 'in', TikTok: '♪', YouTube: '▶' };
+Object.entries(networks).forEach(([name, url]) => {
+  const b = document.createElement('button'); b.className = 'network-action'; b.title = name; b.setAttribute('aria-label', name);
+  const icon = document.createElement('span'); icon.className = 'nav-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = networkIcons[name];
+  const label = document.createElement('span'); label.className = 'nav-label'; label.textContent = name;
+  b.append(icon, label); b.onclick = () => openTab(url); $('shortcuts').append(b);
+});
 let profileBeingRenamed = null;
 $('add-profile').onclick = () => { profileBeingRenamed = null; $('profile-dialog-title').textContent = 'Nuevo perfil'; $('profile-name').value = ''; $('profile-dialog').showModal(); };
 $('rename-profile').onclick = () => { profileBeingRenamed = profile(); $('profile-dialog-title').textContent = 'Renombrar perfil'; $('profile-name').value = profileBeingRenamed.name; $('profile-dialog').showModal(); };
@@ -523,7 +529,8 @@ $('address-form').onsubmit = e => { e.preventDefault(); const value = $('url').v
 $('back').onclick = () => { const view = currentView(); if (view.canGoBack()) view.goBack(); };
 $('forward').onclick = () => { const view = currentView(); if (view.canGoForward()) view.goForward(); };
 $('reload').onclick = () => currentView().reload();
-$('toggle-ai').onclick = () => { $('assistant').classList.toggle('hidden'); };
+// The header assistant control shares the persistent sidebar state.
+$('toggle-ai').onclick = () => window.toggleAssistantSidebar();
 const defaultModels = { ollama: 'llama3.2', openai: 'gpt-4.1-mini', compatible: '' };
 const savedSettings = state.aiSettings && typeof state.aiSettings === 'object' ? state.aiSettings : {};
 const savedModels = savedSettings.models && typeof savedSettings.models === 'object' ? savedSettings.models : {};

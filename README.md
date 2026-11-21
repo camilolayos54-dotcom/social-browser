@@ -66,3 +66,5 @@ Abre «Notas y recordatorios» en Acciones o «Notas» en la barra superior. Cre
 ## Ventana Markdown
 
 Abre «Notas» para ver el explorador y el editor con vista previa. Guarda cada nota con **Guardar**; al cambiar de nota o cerrar la ventana se guardan los cambios pendientes. Los archivos se guardan en `notes/<id-del-perfil>/<id-de-la-nota>.md` dentro de la carpeta de datos de Electron (en Linux, normalmente `~/.config/social-browser/`). La ruta completa aparece en el pie del editor. Las notas creadas con la versión anterior se migran al abrir la aplicación y conservan sus recordatorios. La vista previa admite títulos, listas, negrita, cursiva y código; el archivo conserva el texto Markdown completo. Si el archivo cambia fuera de la aplicación mientras lo editas, se rechaza la escritura para evitar sobrescribirlo: usa «Descartar cambios» para volver a cargarlo.
+
+Las barras laterales se pueden minimizar con los controles de sus cabeceras y ampliar de nuevo desde sus iconos. La barra izquierda mantiene accesibles las redes y acciones; la derecha ofrece accesos al asistente. El estado de ambas barras se recuerda en el equipo.
