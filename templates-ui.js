@@ -19,7 +19,7 @@
     }
   }
   $('templates-button').onclick = () => { owner = profile(); reset(); $('templates-status').textContent = `Perfil: ${owner.name}`; renderTemplates(); $('templates-dialog').showModal(); };
-  $('template-images').onclick = async () => { try { const selected = await window.desktop.chooseTemplateImages(); if (selected) { images = selected; showImages(); } } catch { $('templates-status').textContent = 'No se pudieron seleccionar imágenes.'; } };
+  $('template-images').onclick = async () => { try { const selected = await window.desktop.chooseTemplateImages(); if (selected) { images = selected; showImages(); } } catch (error) { $('templates-status').textContent = `No se pudieron seleccionar imágenes: ${error.message}`; } };
   $('template-clear-images').onclick = () => { images = []; showImages(); };
   $('templates-close').onclick = () => $('templates-dialog').close(); $('template-cancel').onclick = reset;
   $('template-form').onsubmit = event => {

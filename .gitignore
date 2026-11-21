@@ -13,3 +13,9 @@ agent-*.json.tmp
 profiles/
 user-data/
 .DS_Store
+
+# Local keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx

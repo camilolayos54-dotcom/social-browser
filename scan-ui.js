@@ -19,22 +19,64 @@ function renderFacebookScan() {
       open.onclick = () => { const index = state.profiles.indexOf(scanDialogOwner); if (index < 0) return; $('facebook-scan-dialog').close(); state.profile = index; openTab(item.url); };
       const keep = document.createElement('button'); keep.type = 'button'; keep.textContent = 'Guardar oportunidad';
       keep.onclick = () => { $('scan-status').textContent = saveOpportunity(scanDialogOwner, { url: item.url, summary: item.text, reason: `Coincidencia con «${item.phrase || data.phrase}», pendiente de revisión.`, date: item.date || '' }, 'Detección en Facebook'); };
-      article.append(open, keep);
+      const reply = document.createElement('button'); reply.type = 'button'; reply.textContent = 'Revisar respuesta';
+      reply.onclick = () => { $('facebook-scan-dialog').close(); openReplyReview(scanDialogOwner, item); };
+      article.append(open, keep, reply);
     }
     $('scan-results').append(article);
   }
 }
-$('scan-button').onclick = () => { scanDialogOwner = profile(); renderFacebookScan(); $('facebook-scan-dialog').showModal(); };
+function renderPresets() {
+  const selected = $('scan-preset').value;
+  $('scan-preset').replaceChildren(new Option('Selecciona una búsqueda guardada', ''));
+  for (const item of profile().savedFacebookSearches || []) $('scan-preset').add(new Option(item.name, item.id));
+  $('scan-preset').value = selected;
+}
+function scanFilters() { return { location: $('scan-location').value.trim(), exclude: $('scan-exclude').value.trim(), since: $('scan-since').value }; }
+$('scan-preset').onchange = () => {
+  const item = (profile().savedFacebookSearches || []).find(value => value.id === $('scan-preset').value);
+  if (!item) return;
+  $('scan-preset-name').value = item.name; $('scan-phrase').value = item.phrase;
+  $('scan-location').value = item.location || ''; $('scan-exclude').value = item.exclude || '';
+  $('scan-since').value = item.since || ''; $('scan-minutes').value = item.minutes || 2;
+};
+$('scan-save-preset').onclick = () => {
+  const name = $('scan-preset-name').value.trim(), phrase = $('scan-phrase').value.trim();
+  if (!name || !phrase) { $('scan-status').textContent = 'Escribe un nombre y lo que deseas buscar.'; return; }
+  const owner = profile(), old = owner.savedFacebookSearches, items = Array.isArray(old) ? [...old] : [];
+  const index = items.findIndex(item => item.id === $('scan-preset').value);
+  const preset = { id: index >= 0 ? items[index].id : crypto.randomUUID(), name, phrase, ...scanFilters(), minutes: Number($('scan-minutes').value) };
+  if (!Number.isFinite(preset.minutes) || preset.minutes < 0.1 || preset.minutes > 5) { $('scan-status').textContent = 'La duración debe ser de 0,1 a 5 minutos.'; return; }
+  if (index >= 0) items[index] = preset; else items.push(preset);
+  owner.savedFacebookSearches = items;
+  try { save(); renderPresets(); $('scan-preset').value = preset.id; $('scan-status').textContent = 'Búsqueda guardada en este perfil.'; }
+  catch { owner.savedFacebookSearches = old; $('scan-status').textContent = 'No se pudo guardar la búsqueda.'; }
+};
+$('scan-delete-preset').onclick = () => {
+  const owner = profile(), id = $('scan-preset').value, old = owner.savedFacebookSearches;
+  if (!id) { $('scan-status').textContent = 'Selecciona una búsqueda guardada.'; return; }
+  owner.savedFacebookSearches = (old || []).filter(item => item.id !== id);
+  try { save(); renderPresets(); $('scan-status').textContent = 'Búsqueda eliminada.'; }
+  catch { owner.savedFacebookSearches = old; $('scan-status').textContent = 'No se pudo eliminar la búsqueda.'; }
+};
+$('scan-open-search').onclick = () => {
+  const term = $('scan-phrase').value.split(',').map(value => value.trim()).find(Boolean);
+  if (!term) { $('scan-status').textContent = 'Indica lo que deseas buscar.'; return; }
+  const query = [term, $('scan-location').value.trim()].filter(Boolean).join(' ');
+  $('facebook-scan-dialog').close(); openTab(`https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`);
+};
+$('scan-button').onclick = () => { scanDialogOwner = profile(); renderPresets(); renderFacebookScan(); $('facebook-scan-dialog').showModal(); };
 $('scan-close').onclick = () => $('facebook-scan-dialog').close();
 $('scan-stop').onclick = () => { if (facebookScanJob?.owner === scanDialogOwner) { facebookScanJob.cancelled = true; facebookScanJob.wake?.(); } };
-$('scan-start').onclick = async () => { const minutes = Number($('scan-minutes').value); const result = await startFacebookScan(profile(), $('scan-phrase').value, Math.round(minutes * 60)); if (result.startsWith('Error:')) $('scan-status').textContent = result; };
-async function startFacebookScan(owner, phrase, seconds, caller = null) {
+$('scan-start').onclick = async () => { const minutes = Number($('scan-minutes').value); const result = await startFacebookScan(profile(), $('scan-phrase').value, Math.round(minutes * 60), null, scanFilters()); if (result.startsWith('Error:')) $('scan-status').textContent = result; };
+async function startFacebookScan(owner, phrase, seconds, caller = null, filters = {}) {
   if (facebookScanJob) return 'Error: ya hay una detección en curso.';
   if (owner !== profile()) return 'Error: selecciona primero el perfil que quieres revisar.';
   if (typeof phrase !== 'string' || !phrase.trim() || phrase.length > 120 || !Number.isFinite(seconds) || seconds < 1 || seconds > 300) return 'Error: indica una frase y una duración de hasta cinco minutos.';
+  if (typeof filters.location !== 'string' && filters.location !== undefined || typeof filters.exclude !== 'string' && filters.exclude !== undefined || typeof filters.since !== 'string' && filters.since !== undefined || (filters.location || '').length > 100 || (filters.exclude || '').length > 200 || (filters.since && (!/^\d{4}-\d{2}-\d{2}$/.test(filters.since) || Number.isNaN(Date.parse(`${filters.since}T00:00:00`))))) return 'Error: filtros inválidos.';
   const selected = owner.tabs[owner.activeTab], view = selected && views.get(selected.id);
   if (!view || !facebookPage(selected.url)) return 'Error: abre primero Facebook en la pestaña activa.';
-  const job = { owner, selected, view, phrase: phrase.trim(), cancelled: false, wake: null };
+  const job = { owner, selected, view, phrase: phrase.trim(), filters, cancelled: false, wake: null };
   facebookScanJob = job; owner.facebookScan = { phrase: job.phrase, matches: Array.isArray(owner.facebookScan?.matches) ? owner.facebookScan.matches.slice(0, 100) : [], status: 'En curso' }; save();
   if (!scanDialogOwner) scanDialogOwner = owner;
   renderFacebookScan();
@@ -53,7 +95,7 @@ async function startFacebookScan(owner, phrase, seconds, caller = null) {
     boundAddress = pageIdentity(initialUrl);
     const outcome = await scanFacebookPage({
       phrase: job.phrase, seconds, cancelled,
-      observe: async term => { ensureBound(); return await view.executeJavaScript(`(${pageObservation.toString()})('scan_matches', ${JSON.stringify({ phrase: term })})`); },
+      observe: async term => { ensureBound(); return await view.executeJavaScript(`(${pageObservation.toString()})('scan_matches', ${JSON.stringify({ phrase: term, ...job.filters })})`); },
       scroll: async () => { ensureBound(); return await view.executeJavaScript(`(${pageObservation.toString()})('scroll', {"direction":"down"})`); },
       wait: ms => new Promise(resolve => { let timer; const done = () => { clearTimeout(timer); job.wake = null; resolve(); }; job.wake = done; timer = setTimeout(done, ms); }),
       onMatches: async matches => {

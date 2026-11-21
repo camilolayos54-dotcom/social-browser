@@ -113,7 +113,12 @@
   }
   async function closeNotes() { if (dirty && !(await saveNote())) return; if (el('notes-panel').open) el('notes-panel').close(); }
   el('notes-button').onclick = openNotes; el('toggle-notes').onclick = openNotes;
-  el('reminder-banner').onclick = () => { el('reminder-banner').hidden = true; void openNotes(); };
+  el('reminder-banner').onclick = () => {
+    const banner = el('reminder-banner'); banner.hidden = true;
+    const index = state.profiles.findIndex(item => item.id === banner.dataset.profileId);
+    if (index >= 0 && state.profile !== index) { state.profile = index; render(); }
+    if (banner.dataset.kind === 'opportunity') el('opportunities-button').click(); else void openNotes();
+  };
   el('close-notes').onclick = closeNotes;
   el('notes-panel').addEventListener('cancel', event => { event.preventDefault(); void closeNotes(); });
   el('new-note').onclick = async () => { if (dirty && !(await saveNote())) return; clearEditor(); el('note-title').focus(); };
@@ -147,7 +152,7 @@
         if (!note.remindAt || note.reminded || Number.isNaN(when) || when > Date.now()) continue;
         note.reminded = true; try { save(); } catch { note.reminded = false; continue; }
         el('notes-notice').textContent = `Recordatorio · ${p.name}: ${note.title || note.body}`;
-        el('reminder-banner').textContent = `Recordatorio · ${p.name}: ${note.title || note.body}`; el('reminder-banner').hidden = false;
+        el('reminder-banner').textContent = `Recordatorio · ${p.name}: ${note.title || note.body}`; el('reminder-banner').dataset.kind = 'note'; el('reminder-banner').dataset.profileId = p.id; el('reminder-banner').hidden = false;
         try { await window.desktop.showReminder({ title: `Recordatorio · ${p.name}`.slice(0,160), body: (note.title || note.body).slice(0,500) }); } catch {}
       }
       if (selectedId) { const note = listFor(owner).find(n => n.id === selectedId); if (note?.reminded) el('note-reminder-state').textContent = 'Avisado'; }

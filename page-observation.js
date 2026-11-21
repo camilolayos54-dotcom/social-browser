@@ -62,8 +62,11 @@ function pageObservation(operation, options) {
   }
   if (operation === 'scan_matches') {
     const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
-    const phrase = normalize(String(options.phrase || ''));
-    if (!phrase || phrase.length > 120) return { error: 'Frase inválida.' };
+    const terms = String(options.phrase || '').split(',').map(normalize).filter(Boolean);
+    const location = normalize(String(options.location || ''));
+    const exclusions = String(options.exclude || '').split(',').map(normalize).filter(Boolean);
+    const since = options.since ? Date.parse(`${options.since}T00:00:00`) : null;
+    if (!terms.length || terms.some(term => term.length > 120) || location.length > 100 || exclusions.length > 20 || (options.since && Number.isNaN(since))) return { error: 'Filtros inválidos.' };
     const matches = [], ranges = [];
     for (const article of document.querySelectorAll('article, [role="article"]')) {
       if (matches.length >= 50) break;
@@ -76,15 +79,18 @@ function pageObservation(operation, options) {
         if (!parent || parent.closest('script,style,textarea,input,[hidden],[aria-hidden="true"]')) continue;
         const range = document.createRange(); range.selectNodeContents(node);
         const text = node.nodeValue.replace(/\s+/g, ' ').trim();
-        if (text && inViewport(parent, range.getBoundingClientRect())) { parts.push(text); if (normalize(text).includes(phrase)) ranges.push(range); }
+        if (text && inViewport(parent, range.getBoundingClientRect())) { parts.push(text); if (terms.some(term => normalize(text).includes(term))) ranges.push(range); }
       }
       const text = parts.join(' ').slice(0, 1200);
-      if (!normalize(text).includes(phrase)) { ranges.length = beforeRanges; continue; }
+      const normalizedText = normalize(text);
+      const date = article.querySelector('time[datetime]')?.getAttribute('datetime') || '';
+      const dateValue = date ? Date.parse(date) : NaN;
+      if (!terms.some(term => normalizedText.includes(term)) || (location && !normalizedText.includes(location)) || exclusions.some(term => normalizedText.includes(term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
       if (ranges.length === beforeRanges) { const range = document.createRange(); range.selectNodeContents(article); ranges.push(range); }
       const links = Array.from(article.querySelectorAll('a[href]')).map(a => a.href).filter(href => {
         try { const url = new URL(href); return /(^|\.)facebook\.com$/i.test(url.hostname) && (/\/(posts|permalink)\//i.test(url.pathname) || /\/story\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')); } catch { return false; }
       });
-      matches.push({ text, url: links[0] || '', date: article.querySelector('time[datetime]')?.getAttribute('datetime') || '' });
+      matches.push({ text, url: links[0] || '', date });
     }
     if (globalThis.CSS?.highlights && typeof Highlight !== 'undefined') {
       if (!document.getElementById('social-scan-highlight-style')) { const style = document.createElement('style'); style.id = 'social-scan-highlight-style'; style.textContent = '::highlight(social-scan-match) { background-color: #fff176; color: #171717; }'; document.head?.append(style); }

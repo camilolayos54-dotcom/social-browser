@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, safeStorage, Notification, clipboard, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, session, safeStorage, Notification, clipboard, dialog, webContents, nativeImage } = require('electron');
 const path = require('path');
 
 if (process.platform === 'linux') app.setDesktopName('social-browser.desktop');
@@ -15,6 +15,7 @@ function installAltMenu(contents) {
     }
   });
 }
+const replyGuests = new WeakSet();
 const configuredSessions = new WeakSet();
 const sessionPartitions = new WeakMap();
 app.whenReady().then(() => {
@@ -58,7 +59,7 @@ app.whenReady().then(() => {
     contents.on('will-navigate', restrictNavigation);
     contents.on('will-redirect', restrictNavigation);
   }
-  mainWindow.webContents.on('did-attach-webview', (_, guest) => configureBrowserContent(guest));
+  mainWindow.webContents.on('did-attach-webview', (_, guest) => { replyGuests.add(guest); configureBrowserContent(guest); });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.loadFile('index.html');
 });
@@ -157,4 +158,39 @@ ipcMain.handle('note-remove', (event, profileId, noteId, revision) => { checkNot
 
 ipcMain.handle('copy-template', (event, text) => { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); if (typeof text !== 'string' || !text.trim() || text.length > 5000) throw new Error('Mensaje inválido'); clipboard.writeText(text); });
 
-ipcMain.handle('choose-template-images', async event => { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); const result = await dialog.showOpenDialog(mainWindow, { title: 'Seleccionar imágenes', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }] }); return result.canceled ? null : result.filePaths.slice(0, 20); });
+ipcMain.handle('choose-template-images', async event => { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); const result = await dialog.showOpenDialog(mainWindow, { title: 'Seleccionar imágenes', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }] }); if (result.canceled) return null; if (result.filePaths.length > 10) throw new Error('Selecciona como máximo 10 imágenes.'); return result.filePaths; });
+
+ipcMain.handle('reply-attach-images', async (event, request) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado.');
+  const { guestId, url, token, files } = request || {};
+  if (!Number.isInteger(guestId) || typeof token !== 'string' || !/^[a-f0-9-]{36}$/.test(token) || !Array.isArray(files) || !files.length || files.length > 10) throw new Error('Selección de imágenes inválida.');
+  const guest = webContents.fromId(guestId);
+  if (!guest || guest.isDestroyed() || !replyGuests.has(guest) || guest.getURL() !== url) throw new Error('La publicación cambió o se cerró.');
+  let target; try { target = new URL(url); } catch { throw new Error('Dirección inválida.'); }
+  if (target.protocol !== 'https:' || !/(^|\.)facebook\.com$/i.test(target.hostname) || target.username || target.password) throw new Error('La publicación no pertenece a Facebook.');
+  const fs = require('node:fs/promises');
+  for (const file of files) {
+    if (typeof file !== 'string' || !path.isAbsolute(file) || !/\.(png|jpe?g|webp|gif)$/i.test(file)) throw new Error('Archivo de imagen inválido.');
+    const info = await fs.stat(file); if (!info.isFile() || info.size > 20 * 1024 * 1024) throw new Error('Revisa que cada imagen exista y no supere 20 MB.');
+  }
+  if (guest.debugger.isAttached()) throw new Error('No se puede preparar imágenes mientras otra herramienta controla la página.');
+  guest.debugger.attach('1.3');
+  try {
+    if (guest.getURL() !== url) throw new Error('La página cambió.');
+    const doc = await guest.debugger.sendCommand('DOM.getDocument', { depth: 0 });
+    const found = await guest.debugger.sendCommand('DOM.querySelector', { nodeId: doc.root.nodeId, selector: `[data-social-reply="${token}-file"]` });
+    if (!found.nodeId || guest.getURL() !== url) throw new Error('No se encontró el selector de imágenes del comentario.');
+    await guest.debugger.sendCommand('DOM.setFileInputFiles', { nodeId: found.nodeId, files });
+  } finally { if (guest.debugger.isAttached()) guest.debugger.detach(); }
+});
+
+ipcMain.handle('reply-image-previews', async (event, files) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado.');
+  if (!Array.isArray(files) || files.length > 10) throw new Error('Selección de imágenes inválida.');
+  const fs = require('node:fs/promises');
+  return Promise.all(files.map(async file => {
+    if (typeof file !== 'string' || !path.isAbsolute(file) || !/\.(png|jpe?g|webp|gif)$/i.test(file)) throw new Error('Archivo de imagen inválido.');
+    const info = await fs.stat(file); if (!info.isFile() || info.size > 20 * 1024 * 1024) throw new Error('Revisa que cada imagen exista y no supere 20 MB.');
+    const image = nativeImage.createFromPath(file); return { path: file, preview: image.isEmpty() ? '' : image.resize({ width: 160, quality: 'good' }).toDataURL() };
+  }));
+});

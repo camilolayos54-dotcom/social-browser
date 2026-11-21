@@ -12,6 +12,7 @@ function prepareOpportunity(records, input, source) {
   const existing = current.find(record => record.url === url.href);
   if (!existing && current.length >= 500) throw new Error('Este perfil alcanzó el límite de 500 oportunidades.');
   const record = {
+    ...(existing || {}),
     id: existing?.id || crypto.randomUUID(),
     url: url.href,
     summary: input.summary.trim(),

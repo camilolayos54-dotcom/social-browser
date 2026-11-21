@@ -248,6 +248,7 @@ function renderOpportunities() {
     const reason = document.createElement('p'); reason.textContent = `Motivo: ${record.reason}`;
     const link = document.createElement('p'); link.textContent = record.url;
     const actions = document.createElement('div'); actions.className = 'item-actions';
+    const tracking = createOpportunityTracking(owner, record);
     const open = document.createElement('button'); open.textContent = 'Abrir';
     open.onclick = () => {
       const index = state.profiles.indexOf(owner);
@@ -258,7 +259,9 @@ function renderOpportunities() {
     };
     const remove = document.createElement('button'); remove.textContent = 'Eliminar';
     remove.onclick = () => { pendingOpportunityDeletion = { owner, id: record.id }; $('delete-opportunity-summary').textContent = record.summary; $('delete-opportunity-dialog').showModal(); };
-    actions.append(open, remove); article.append(meta, summary, reason, link, actions); $('opportunities-list').append(article);
+    const reply = document.createElement('button'); reply.textContent = 'Revisar respuesta';
+    reply.onclick = () => { $('opportunities-dialog').close(); openReplyReview(owner, record); };
+    actions.append(open, reply, remove); article.append(meta, summary, reason, link, tracking, actions); $('opportunities-list').append(article);
   }
 }
 $('opportunities-button').onclick = () => {
