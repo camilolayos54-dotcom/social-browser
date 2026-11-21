@@ -1,5 +1,6 @@
 let facebookScanJob = null;
 let scanDialogOwner = null;
+let scanResultsVisible = true;
 const DEFAULT_FREQUENT_TERMS = ['trasteos', 'mudanzas', 'acarreos', 'fletes'];
 const DEFAULT_FREQUENT_LOCATIONS = ['Medellín', 'Envigado', 'Bello', 'Itagüí', 'Sabaneta'];
 function facebookPage(url) {
@@ -8,6 +9,15 @@ function facebookPage(url) {
 function openScanBar() {
   const dialog = $('facebook-scan-dialog');
   if (!dialog.open) dialog.show();
+}
+function showScanAlert(addedCount, totalCount, previewText) {
+  const banner = $('scan-alert-banner');
+  const label = $('scan-alert-text');
+  if (!banner || !label) return;
+  const snippet = String(previewText || '').slice(0, 75);
+  label.textContent = `🎯 ¡He encontrado ${addedCount === 1 ? '1 nuevo resultado' : `${addedCount} nuevos resultados`}! (${totalCount} en total)${snippet ? ` · «${snippet}…»` : ''}`;
+  banner.hidden = false;
+  try { window.desktop?.notify?.('Social Browser · Nuevo resultado', snippet || `Se encontraron ${totalCount} coincidencias.`); } catch {}
 }
 function ensureFrequentLists(owner) {
   if (!Array.isArray(owner.frequentScanTerms) || !owner.frequentScanTerms.length) {
@@ -63,21 +73,33 @@ function renderFacebookScan() {
   if (!scanDialogOwner) return;
   const data = scanDialogOwner.facebookScan || { matches: [] };
   const running = Boolean(facebookScanJob && facebookScanJob.owner === scanDialogOwner);
+  const progressText = running && facebookScanJob.passes
+    ? ` · Pasada ${facebookScanJob.passes} · ${facebookScanJob.scannedTotal || 0} pub. leídas`
+    : '';
   $('scan-status').textContent = running
-    ? (facebookScanJob.cancelled ? 'Deteniendo búsqueda…' : `Buscando «${facebookScanJob.phrase}» · ${data.matches.length} coincidencias registradas.`)
+    ? (facebookScanJob.cancelled ? 'Deteniendo búsqueda…' : `⚡ Buscando «${facebookScanJob.phrase}»${progressText} · ${data.matches.length} coincidencias.`)
     : (data.status || 'Abre una pestaña de Facebook y comienza la búsqueda.');
   $('scan-start').disabled = Boolean(facebookScanJob);
   $('scan-stop').hidden = !running;
   $('scan-stop').disabled = Boolean(running && facebookScanJob.cancelled);
-  const matches = data.matches || [];
+  const matches = [...(data.matches || [])].sort((a, b) => (b.intent === 'client' ? 1 : 0) - (a.intent === 'client' ? 1 : 0));
+  if ($('scan-results-count')) $('scan-results-count').textContent = String(matches.length);
   if ($('scan-save-all')) $('scan-save-all').hidden = !matches.some(m => m.url);
   if ($('scan-clear-results')) $('scan-clear-results').hidden = !matches.length || running;
+  $('scan-results').hidden = !scanResultsVisible;
   $('scan-results').replaceChildren();
   for (const item of matches) {
     const article = document.createElement('article'); const text = document.createElement('p'); text.textContent = item.text;
     const meta = document.createElement('small');
+    if (item.intent === 'client') {
+      const badge = document.createElement('span'); badge.className = 'intent-badge intent-client'; badge.textContent = '🔥 Posible cliente';
+      meta.append(badge);
+    } else if (item.intent === 'ad') {
+      const badge = document.createElement('span'); badge.className = 'intent-badge intent-ad'; badge.textContent = 'Anuncio';
+      meta.append(badge);
+    }
     const locTag = item.location ? ` · ${item.location}` : '';
-    meta.textContent = (item.url ? 'Enlace de publicación detectado · pendiente de revisión' : 'Sin enlace directo · revisión manual') + locTag;
+    meta.append(document.createTextNode((item.url ? 'Enlace detectado · pendiente de revisión' : 'Sin enlace directo · revisión manual') + locTag));
     article.append(meta, text);
     if (item.url) {
       const open = document.createElement('button'); open.type = 'button'; open.textContent = 'Abrir publicación';
@@ -99,9 +121,25 @@ function renderPresets() {
   $('scan-preset').value = selected;
   window.refreshSavedSearches?.();
 }
-function scanFilters() { return { location: $('scan-location').value.trim(), exclude: $('scan-exclude').value.trim(), since: $('scan-since').value }; }
+function scanFilters() {
+  return {
+    location: $('scan-location').value.trim(),
+    exclude: $('scan-exclude').value.trim(),
+    since: $('scan-since').value,
+    onlyClients: Boolean($('scan-only-clients')?.checked)
+  };
+}
 $('scan-phrase').oninput = renderFrequentChips;
 $('scan-location').oninput = renderFrequentChips;
+if ($('scan-toggle-results')) {
+  $('scan-toggle-results').onclick = () => { scanResultsVisible = !scanResultsVisible; renderFacebookScan(); };
+}
+if ($('scan-alert-view')) {
+  $('scan-alert-view').onclick = () => { scanResultsVisible = true; $('scan-alert-banner').hidden = true; renderFacebookScan(); $('scan-results').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+}
+if ($('scan-alert-dismiss')) {
+  $('scan-alert-dismiss').onclick = () => { $('scan-alert-banner').hidden = true; };
+}
 $('scan-preset').onchange = () => {
   const item = (profile().savedFacebookSearches || []).find(value => value.id === $('scan-preset').value);
   if (!item) return;
@@ -148,6 +186,7 @@ if ($('scan-clear-results')) {
     if (facebookScanJob) return;
     const owner = scanDialogOwner || profile();
     if (owner.facebookScan) { owner.facebookScan.matches = []; owner.facebookScan.status = 'Resultados limpiados.'; }
+    if ($('scan-alert-banner')) $('scan-alert-banner').hidden = true;
     try { save(); } catch {}
     renderFacebookScan();
   };
@@ -172,7 +211,7 @@ async function runSavedFacebookSearch(id) {
   openTab(`https://www.facebook.com/search/posts/?q=${encodeURIComponent([term, location].filter(Boolean).join(' '))}`);
   scanDialogOwner = owner; renderPresets(); $('scan-preset').value = preset.id; $('scan-preset').dispatchEvent(new Event('change')); renderFacebookScan();
   openScanBar();
-  const result = await startFacebookScan(owner, preset.phrase, Math.round(Number(preset.minutes || 2) * 60), null, { location: preset.location || '', exclude: preset.exclude || '', since: preset.since || '' });
+  const result = await startFacebookScan(owner, preset.phrase, Math.round(Number(preset.minutes || 2) * 60), null, { location: preset.location || '', exclude: preset.exclude || '', since: preset.since || '', onlyClients: Boolean(preset.onlyClients) });
   if (result.startsWith('Error:')) $('scan-status').textContent = result;
 }
 function stopFacebookScan() {
@@ -194,7 +233,8 @@ async function startFacebookScan(owner, phrase, seconds, caller = null, filters 
   if (typeof filters.location !== 'string' && filters.location !== undefined || typeof filters.exclude !== 'string' && filters.exclude !== undefined || typeof filters.since !== 'string' && filters.since !== undefined || (filters.location || '').length > 100 || (filters.exclude || '').length > 200 || (filters.since && (!/^\d{4}-\d{2}-\d{2}$/.test(filters.since) || Number.isNaN(Date.parse(`${filters.since}T00:00:00`))))) return 'Error: filtros inválidos.';
   const selected = owner.tabs[owner.activeTab], view = selected && views.get(selected.id);
   if (!view || !facebookPage(selected.url)) return 'Error: abre primero Facebook en la pestaña activa.';
-  const job = { owner, selected, view, phrase: phrase.trim(), filters, cancelled: false, wake: null, cancelWait: null, abortStep: null };
+  const intervalMs = Number($('scan-speed')?.value) || 650;
+  const job = { owner, selected, view, phrase: phrase.trim(), filters, cancelled: false, wake: null, cancelWait: null, abortStep: null, passes: 0, scannedTotal: 0 };
   const previousScan = owner.facebookScan;
   recordFrequentWords(owner, job.phrase, filters.location || '');
   facebookScanJob = job; owner.facebookScan = { phrase: job.phrase, location: filters.location || '', matches: Array.isArray(previousScan?.matches) ? previousScan.matches.slice(0, 300) : [], status: 'En curso' };
@@ -228,26 +268,39 @@ async function startFacebookScan(owner, phrase, seconds, caller = null, filters 
     const initialUrl = view.getURL(); if (!facebookPage(initialUrl)) throw new Error('La pestaña dejó de estar en Facebook.');
     boundAddress = pageIdentity(initialUrl);
     const outcome = await scanFacebookPage({
-      phrase: job.phrase, seconds, cancelled,
+      phrase: job.phrase, seconds, intervalMs, cancelled,
       observe: async term => { ensureBound(); return await raceCancel(view.executeJavaScript(`(${pageObservation.toString()})('scan_matches', ${JSON.stringify({ phrase: term, ...job.filters })})`)); },
       scroll: async () => { ensureBound(); return await raceCancel(view.executeJavaScript(`(${pageObservation.toString()})('scroll', {"direction":"down"})`)); },
       wait: ms => new Promise(resolve => { if (cancelled()) { resolve(); return; } let timer; const done = () => { clearTimeout(timer); job.wake = null; resolve(); }; job.wake = done; timer = setTimeout(done, ms); }),
+      onProgress: info => {
+        job.passes = info.passes;
+        job.scannedTotal = info.scannedTotal;
+        renderFacebookScan();
+      },
       onMatches: async matches => {
+        let added = 0;
+        let firstNewText = '';
         for (const found of matches) {
           if (typeof found.text !== 'string' || !found.text.trim()) continue;
           const text = found.text.slice(0, 1200), url = facebookPage(found.url) ? found.url : '';
           const records = owner.facebookScan.matches;
           if (!records.some(item => url ? item.url === url : !item.url && item.text === text) && records.length < 300) {
-            records.push({ text, url, phrase: job.phrase, location: job.filters.location || '', date: typeof found.date === 'string' ? found.date.slice(0, 80) : '', foundAt: new Date().toISOString() });
+            records.push({ text, url, phrase: job.phrase, location: job.filters.location || '', date: typeof found.date === 'string' ? found.date.slice(0, 80) : '', intent: found.intent || 'neutral', foundAt: new Date().toISOString() });
+            added++;
+            if (!firstNewText) firstNewText = text;
           }
+        }
+        if (added > 0) {
+          scanResultsVisible = true;
+          showScanAlert(added, owner.facebookScan.matches.length, firstNewText);
         }
         save(); renderFacebookScan();
       }
     });
-    owner.facebookScan.status = `${outcome.reason === 'cancelled' ? 'Detenida' : outcome.reason === 'end' ? 'Sin más contenido' : 'Finalizada'} · ${owner.facebookScan.matches.length} coincidencias. Revisa cada publicación antes de responder.`;
+    owner.facebookScan.status = `${outcome.reason === 'cancelled' ? 'Detenida' : outcome.reason === 'end' ? 'Sin más contenido' : 'Finalizada'} · ${outcome.scannedTotal || 0} pub. revisadas · ${owner.facebookScan.matches.length} coincidencias.`;
   } catch (error) {
     owner.facebookScan.status = job.cancelled
-      ? `Detenida · ${owner.facebookScan.matches.length} coincidencias. Revisa cada publicación antes de responder.`
+      ? `Detenida · ${job.scannedTotal || 0} pub. revisadas · ${owner.facebookScan.matches.length} coincidencias.`
       : `Detenida: ${error.message}`;
   } finally {
     facebookScanJob = null;

@@ -29,6 +29,16 @@ test('compact scan bar ignores Facebook search noise, matches singular/plural, s
       <p>Busco trasteos en Bogotá norte</p>
       <a href="https://www.facebook.com/example/posts/4004">Hace 4 h</a>
     </div>
+    <div role="feed">
+      <div>
+        <p>Publicación sin role article: alguien recomienda trasteos en Medellín?</p>
+        <a href="https://www.facebook.com/groups/med/posts/5005/">Hace 5 min</a>
+      </div>
+      <div>
+        <img alt="Puede ser una imagen de texto que dice 'Necesito trasteos en Envigado para hoy'">
+        <a href="https://www.facebook.com/photo/?fbid=6006">Hace 10 min</a>
+      </div>
+    </div>
     <div style="height:2400px"></div>
   `;
   const server = http.createServer((_, res) => {
@@ -61,19 +71,25 @@ test('compact scan bar ignores Facebook search noise, matches singular/plural, s
     await page.locator('#scan-frequent-locations .scan-chip', { hasText: 'Envigado' }).click();
     assert.match(await page.locator('#scan-location').inputValue(), /Medellín, Envigado/);
 
-    // Add a custom frequent word & exclude 'empleo'
+    // Add a custom frequent word, select Turbo speed & exclude 'empleo'
+    await page.locator('#scan-speed').selectOption('350');
     await page.locator('#scan-phrase').fill('trasteos, mudanza express');
     await page.locator('#scan-exclude').fill('empleo');
     await page.locator('#scan-minutes').fill('2');
     await page.locator('#scan-start').click();
 
-    await page.waitForFunction(() => document.querySelectorAll('#scan-results article').length === 2, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelectorAll('#scan-results article').length === 4, null, { timeout: 10000 });
     const resultsText = await page.locator('#scan-results').innerText();
     assert(resultsText.includes('trasteo urgente en Medellín'), 'Should match singular trasteo');
     assert(resultsText.includes('Envigado'), 'Should match Envigado');
+    assert(resultsText.includes('Publicación sin role article'), 'Should detect modern FB feed posts without role=article');
+    assert(resultsText.includes('[Imagen]'), 'Should detect text inside Facebook image alt-text (auto-OCR)');
+    assert(resultsText.includes('Posible cliente'), 'Should tag client intent');
     assert(!resultsText.includes('Se incluyen los resultados'), 'Should ignore Facebook search noise banner');
     assert(!resultsText.includes('empleo'), 'Should exclude empleo');
     assert(!resultsText.includes('Bogotá'), 'Should exclude Bogotá');
+    assert.equal(await page.locator('#scan-alert-banner').isVisible(), true, 'Alert banner should appear on match');
+    assert.match(await page.locator('#scan-alert-text').innerText(), /He encontrado/);
 
     // Test Detener button stops immediately
     const stopStart = Date.now();
@@ -85,7 +101,7 @@ test('compact scan bar ignores Facebook search noise, matches singular/plural, s
 
     // Save all matches as opportunities
     await page.locator('#scan-save-all').click();
-    assert.match(await page.locator('#scan-status').innerText(), /2 oportunidades guardadas/);
+    assert.match(await page.locator('#scan-status').innerText(), /4 oportunidades guardadas/);
 
     // Verify frequent words persisted across app restart
     await app.close(); app = null;
@@ -94,10 +110,11 @@ test('compact scan bar ignores Facebook search noise, matches singular/plural, s
     await page.locator('#scan-button').click();
     const chipsText = await page.locator('#scan-frequent-terms').innerText();
     assert(chipsText.includes('mudanza express'), `Expected saved frequent term in chips: ${chipsText}`);
-    assert.equal(await page.locator('#scan-results article').count(), 2, 'Saved scan matches should persist');
+    assert.equal(await page.locator('#scan-results article').count(), 4, 'Saved scan matches should persist');
   } finally {
     if (app) await app.close();
     await new Promise(resolve => server.close(resolve));
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+

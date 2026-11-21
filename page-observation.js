@@ -64,19 +64,42 @@ function pageObservation(operation, options) {
     const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
     const matchesTerm = (haystack, term) => haystack.includes(term) || (term.length > 4 && term.endsWith('s') && haystack.includes(term.slice(0, -1)));
     const uiNoisePatterns = ['se incluyen los resultados para', 'en su lugar, buscar', 'showing results for', 'search instead for', 'no encontramos resultados', 'fin de los resultados'];
+    const clientSignals = ['necesito', 'busco', 'alguien recomienda', 'recomiendan', 'quien hace', 'alguien sabe', 'cotizacion', 'cotizar', 'urgente', 'cuanto cuesta', 'quien me ayuda', 'para hoy', 'para manana', 'requiero'];
+    const adSignals = ['ofrecemos', 'contamos con', 'servicio de trasteo', 'servicio de mudanza', 'llamanos', 'comunicate al', 'cotiza con nosotros', 'somos empresa', 'disponibilidad inmediata'];
     const terms = String(options.phrase || '').split(',').map(normalize).filter(Boolean);
     const locations = String(options.location || '').split(',').map(normalize).filter(Boolean);
     const exclusions = String(options.exclude || '').split(',').map(normalize).filter(Boolean);
     const since = options.since ? Date.parse(`${options.since}T00:00:00`) : null;
+    const onlyClients = Boolean(options.onlyClients);
     if (!terms.length || terms.some(term => term.length > 120) || locations.length > 20 || locations.some(location => location.length > 100) || exclusions.length > 20 || (options.since && Number.isNaN(since))) return { error: 'Filtros inválidos.' };
+    // Auto-expand "Ver más" / "See more" buttons on visible posts so hidden keywords are exposed
+    for (const btn of document.querySelectorAll('[role="button"], button')) {
+      const label = normalize(btn.textContent || '');
+      if ((label === 'ver mas' || label === 'see more') && inViewport(btn)) {
+        try { btn.click(); } catch {}
+      }
+    }
+    // Discover posts across standard articles AND modern Facebook Search/Feed containers
+    const rawCandidates = [
+      ...document.querySelectorAll('article, [role="article"]'),
+      ...document.querySelectorAll('[role="feed"] > div, [data-pagelet*="FeedUnit"], [role="main"] [role="list"] > [role="listitem"]')
+    ];
+    const candidates = [];
+    for (const el of rawCandidates) {
+      if (!el || !inViewport(el)) continue;
+      if (el.parentElement?.closest('article, [role="article"]')) continue;
+      if (candidates.some(existing => existing === el || existing.contains(el) || el.contains(existing))) continue;
+      candidates.push(el);
+    }
     const matches = [], ranges = [];
-    for (const article of document.querySelectorAll('article, [role="article"]')) {
+    let scanned = 0;
+    for (const article of candidates) {
       if (matches.length >= 50) break;
-      if (article.parentElement?.closest('article, [role="article"]') || !inViewport(article)) continue;
+      scanned++;
       const beforeRanges = ranges.length;
       const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
       const parts = []; let examined = 0, node;
-      while ((node = walker.nextNode()) && examined++ < 2000) {
+      while ((node = walker.nextNode()) && examined++ < 2500) {
         const parent = node.parentElement;
         if (!parent || parent.closest('script,style,textarea,input,[hidden],[aria-hidden="true"]')) continue;
         const style = getComputedStyle(parent);
@@ -89,12 +112,21 @@ function pageObservation(operation, options) {
           if (inViewport(parent, range.getBoundingClientRect())) ranges.push(range);
         }
       }
+      // Also inspect Facebook's auto-OCR image alt text (e.g. "Puede ser una imagen de texto que dice '...'")
+      for (const img of article.querySelectorAll('img[alt]')) {
+        const alt = (img.getAttribute('alt') || '').replace(/\s+/g, ' ').trim();
+        if (alt.length > 12 && !/^(foto del perfil|profile photo|emoji)/i.test(alt)) parts.push(`[Imagen] ${alt}`);
+      }
       const text = parts.join(' ').slice(0, 1200);
       const normalizedText = normalize(text);
       if (!normalizedText || uiNoisePatterns.some(noise => normalizedText.includes(noise))) { ranges.length = beforeRanges; continue; }
       const date = article.querySelector('time[datetime]')?.getAttribute('datetime') || '';
       const dateValue = date ? Date.parse(date) : NaN;
       if (!terms.some(term => matchesTerm(normalizedText, term)) || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => matchesTerm(normalizedText, term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
+      const hasClient = clientSignals.some(sig => normalizedText.includes(sig));
+      const hasAd = adSignals.some(sig => normalizedText.includes(sig));
+      const intent = hasClient && !hasAd ? 'client' : hasAd && !hasClient ? 'ad' : 'neutral';
+      if (onlyClients && intent === 'ad') { ranges.length = beforeRanges; continue; }
       if (ranges.length === beforeRanges) { const range = document.createRange(); range.selectNodeContents(article); ranges.push(range); }
       const links = Array.from(article.querySelectorAll('a[href]')).map(a => a.href).filter(href => {
         try {
@@ -103,13 +135,13 @@ function pageObservation(operation, options) {
           return /\/(posts|permalink|photo|videos?|reel)\b/i.test(url.pathname) || (/\/(story|permalink)\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')) || url.searchParams.has('fbid') || url.searchParams.has('multi_permalinks') || /pfbid/i.test(url.pathname);
         } catch { return false; }
       });
-      matches.push({ text, url: links[0] || '', date });
+      matches.push({ text, url: links[0] || '', date, intent });
     }
     if (globalThis.CSS?.highlights && typeof Highlight !== 'undefined') {
       if (!document.getElementById('social-scan-highlight-style')) { const style = document.createElement('style'); style.id = 'social-scan-highlight-style'; style.textContent = '::highlight(social-scan-match) { background-color: #fff176; color: #171717; }'; document.head?.append(style); }
       CSS.highlights.set('social-scan-match', new Highlight(...ranges));
     }
-    return { matches, highlighted: ranges.length };
+    return { matches, highlighted: ranges.length, scanned };
   }
   if (operation === 'scroll') {
     const down = options.direction === 'down';
@@ -132,7 +164,7 @@ function pageObservation(operation, options) {
     }
     if (!target) return { moved: false, reason: 'No hay más contenido desplazable en esa dirección.' };
     const before = target.scrollTop;
-    const amount = Math.max(100, Math.floor(target.clientHeight * 0.8)) * (down ? 1 : -1);
+    const amount = Math.max(220, Math.floor(target.clientHeight * 0.92)) * (down ? 1 : -1);
     target.scrollBy({ top: amount, behavior: 'instant' });
     return { moved: target.scrollTop !== before, before, position: target.scrollTop, maximum: target.scrollHeight - target.clientHeight, container: target === document.scrollingElement ? 'documento' : 'área desplazable' };
   }
