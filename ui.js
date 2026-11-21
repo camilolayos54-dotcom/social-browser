@@ -54,6 +54,30 @@
   document.getElementById('actions-run-saved').onclick = () => { if (savedSelect.value) void runSavedFacebookSearch(savedSelect.value); };
   document.addEventListener('social-profile-rendered', refreshSavedSearches);
   refreshSavedSearches();
+  const updateActionGroups = () => {
+    let nets = [];
+    try {
+      if (typeof profileNetworks === 'function') nets = profileNetworks().map(item => item.name.toLowerCase());
+    } catch {}
+    document.querySelectorAll('.action-group[data-network]').forEach(group => {
+      const net = group.dataset.network.toLowerCase();
+      if (net === 'general') {
+        group.hidden = false;
+      } else {
+        const has = nets.length === 0 || nets.includes(net);
+        group.hidden = !has;
+      }
+    });
+  };
+  window.updateActionGroups = updateActionGroups;
+  document.addEventListener('social-profile-rendered', updateActionGroups);
+  updateActionGroups();
+  document.addEventListener('click', event => {
+    const quick = event.target.closest('.network-quick-action');
+    if (quick && quick.dataset.url) {
+      if (typeof openTab === 'function') openTab(quick.dataset.url);
+    }
+  });
   document.querySelectorAll('.assistant-rail .rail-direct').forEach(button => {
     button.onclick = () => document.getElementById(button.dataset.target).click();
   });
