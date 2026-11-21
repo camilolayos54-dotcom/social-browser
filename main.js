@@ -18,7 +18,12 @@ function installAltMenu(contents) {
 const replyGuests = new WeakSet();
 const configuredSessions = new WeakSet();
 const sessionPartitions = new WeakMap();
+function cleanChromeUserAgent(ua) {
+  return String(ua || '').replace(/\s*social-browser\/[^\s]+/gi, '').replace(/\s*Electron\/[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
+}
 app.whenReady().then(() => {
+  const chromeUA = cleanChromeUserAgent(app.userAgentFallback);
+  if (chromeUA) app.userAgentFallback = chromeUA;
   credentials = new (require('./credentials').CredentialStore)(app.getPath('userData'), safeStorage);
   mainWindow = new BrowserWindow({ width: 1440, height: 900, autoHideMenuBar: true, titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: '#191919', symbolColor: '#e9e9e9', height: 42 } }), webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
   installAltMenu(mainWindow.webContents);
@@ -33,12 +38,14 @@ app.whenReady().then(() => {
     const browsingSession = session.fromPartition(params.partition);
     sessionPartitions.set(browsingSession, params.partition);
     if (!configuredSessions.has(browsingSession)) {
+      if (chromeUA) browsingSession.setUserAgent(chromeUA);
       browsingSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'fullscreen' || permission === 'clipboard-sanitized-write'));
       browsingSession.setPermissionCheckHandler((_contents, permission) => permission === 'fullscreen' || permission === 'clipboard-sanitized-write');
       configuredSessions.add(browsingSession);
     }
   });
   function configureBrowserContent(contents) {
+    if (chromeUA) contents.setUserAgent(chromeUA);
     installAltMenu(contents);
     contents.setWindowOpenHandler(details => {
       const { url, disposition, frameName, postBody } = details;
