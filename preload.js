@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  chooseTemplateImages: () => ipcRenderer.invoke('choose-template-images'),
+  copyTemplate: text => ipcRenderer.invoke('copy-template', text),
   readNote: (profileId, noteId) => ipcRenderer.invoke('note-read', profileId, noteId),
   writeNote: (profileId, noteId, text, revision) => ipcRenderer.invoke('note-write', profileId, noteId, text, revision),
   removeNote: (profileId, noteId, revision) => ipcRenderer.invoke('note-remove', profileId, noteId, revision),

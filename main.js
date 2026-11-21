@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, session, safeStorage, Notification, clipboard, dialog } = require('electron');
 const path = require('path');
 
 if (process.platform === 'linux') app.setDesktopName('social-browser.desktop');
@@ -154,3 +154,7 @@ function checkNoteSender(event) { if (!mainWindow || event.sender !== mainWindow
 ipcMain.handle('note-read', (event, profileId, noteId) => { checkNoteSender(event); return noteFiles.read(app.getPath('userData'), profileId, noteId); });
 ipcMain.handle('note-write', (event, profileId, noteId, text, revision) => { checkNoteSender(event); return noteFiles.write(app.getPath('userData'), profileId, noteId, text, revision); });
 ipcMain.handle('note-remove', (event, profileId, noteId, revision) => { checkNoteSender(event); return noteFiles.remove(app.getPath('userData'), profileId, noteId, revision); });
+
+ipcMain.handle('copy-template', (event, text) => { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); if (typeof text !== 'string' || !text.trim() || text.length > 5000) throw new Error('Mensaje inválido'); clipboard.writeText(text); });
+
+ipcMain.handle('choose-template-images', async event => { if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado'); const result = await dialog.showOpenDialog(mainWindow, { title: 'Seleccionar imágenes', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }] }); return result.canceled ? null : result.filePaths.slice(0, 20); });

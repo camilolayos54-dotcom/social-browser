@@ -28,6 +28,7 @@
   document.querySelectorAll('.assistant-rail .rail-action').forEach(button => {
     button.onclick = () => { setRight(false); document.getElementById(button.dataset.focus).focus(); };
   });
+  document.querySelectorAll('button[aria-label]').forEach(button => { if (!button.title) button.title = button.getAttribute('aria-label'); });
   setLeft(read('social-sidebar-left-collapsed'));
   setRight(read('social-sidebar-right-collapsed'));
   document.addEventListener('click', event => {

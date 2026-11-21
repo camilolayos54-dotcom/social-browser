@@ -60,6 +60,38 @@ function pageObservation(operation, options) {
     }
     return { title: document.title, url: location.href, text: pieces.join('\n').slice(0, 12000), links, articles, truncated: length >= 12000 || examined >= 15000 };
   }
+  if (operation === 'scan_matches') {
+    const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+    const phrase = normalize(String(options.phrase || ''));
+    if (!phrase || phrase.length > 120) return { error: 'Frase inválida.' };
+    const matches = [], ranges = [];
+    for (const article of document.querySelectorAll('article, [role="article"]')) {
+      if (matches.length >= 50) break;
+      if (article.parentElement?.closest('article, [role="article"]') || !inViewport(article)) continue;
+      const beforeRanges = ranges.length;
+      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+      const parts = []; let examined = 0, node;
+      while ((node = walker.nextNode()) && examined++ < 2000) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('script,style,textarea,input,[hidden],[aria-hidden="true"]')) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        const text = node.nodeValue.replace(/\s+/g, ' ').trim();
+        if (text && inViewport(parent, range.getBoundingClientRect())) { parts.push(text); if (normalize(text).includes(phrase)) ranges.push(range); }
+      }
+      const text = parts.join(' ').slice(0, 1200);
+      if (!normalize(text).includes(phrase)) { ranges.length = beforeRanges; continue; }
+      if (ranges.length === beforeRanges) { const range = document.createRange(); range.selectNodeContents(article); ranges.push(range); }
+      const links = Array.from(article.querySelectorAll('a[href]')).map(a => a.href).filter(href => {
+        try { const url = new URL(href); return /(^|\.)facebook\.com$/i.test(url.hostname) && (/\/(posts|permalink)\//i.test(url.pathname) || /\/story\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')); } catch { return false; }
+      });
+      matches.push({ text, url: links[0] || '', date: article.querySelector('time[datetime]')?.getAttribute('datetime') || '' });
+    }
+    if (globalThis.CSS?.highlights && typeof Highlight !== 'undefined') {
+      if (!document.getElementById('social-scan-highlight-style')) { const style = document.createElement('style'); style.id = 'social-scan-highlight-style'; style.textContent = '::highlight(social-scan-match) { background-color: #fff176; color: #171717; }'; document.head?.append(style); }
+      CSS.highlights.set('social-scan-match', new Highlight(...ranges));
+    }
+    return { matches, highlighted: ranges.length };
+  }
   if (operation === 'scroll') {
     const down = options.direction === 'down';
     const canMove = element => element && element.scrollHeight > element.clientHeight + 1 && (down ? element.scrollTop + element.clientHeight < element.scrollHeight - 1 : element.scrollTop > 0);

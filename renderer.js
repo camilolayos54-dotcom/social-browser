@@ -158,7 +158,7 @@ function render() {
 }
 function openTab(url) { profile().tabs.push(newTab(url)); profile().activeTab = profile().tabs.length - 1; render(); }
 function currentView() { return views.get(tab().id); }
-const networkIcons = { Facebook: 'f', Instagram: '◎', Messenger: 'ϟ', WhatsApp: '◉', X: '𝕏', LinkedIn: 'in', TikTok: '♪', YouTube: '▶' };
+const networkIcons = { Facebook: 'f', Instagram: 'IG', Messenger: 'M', WhatsApp: 'WA', X: 'X', LinkedIn: 'in', TikTok: '♪', YouTube: '▶' };
 Object.entries(networks).forEach(([name, url]) => {
   const b = document.createElement('button'); b.className = 'network-action'; b.title = name; b.setAttribute('aria-label', name);
   const icon = document.createElement('span'); icon.className = 'nav-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = networkIcons[name];
@@ -221,7 +221,7 @@ $('activity-button').onclick = () => {
 $('close-activity').onclick = () => $('activity-dialog').close();
 function updateOpportunityCount() {
   const count = Array.isArray(profile().opportunities) ? profile().opportunities.length : 0;
-  $('opportunities-button').textContent = count ? `Oportunidades (${count})` : 'Oportunidades';
+  $('opportunities-button').querySelector('.nav-label').textContent = count ? `Oportunidades (${count})` : 'Oportunidades';
 }
 function saveOpportunity(owner, input, source) {
   const previous = owner.opportunities;
@@ -651,6 +651,7 @@ async function performAction(owner, call, job) {
     return await requestCloseTab(owner, args.id, job);
   }
   if (call.name === 'save_opportunity') return saveOpportunity(owner, args, 'Asistente');
+  if (call.name === 'scan_facebook') return await startFacebookScan(owner, args.phrase, args.seconds, job);
   if (call.name === 'wait_page') {
     if (!Number.isInteger(args.seconds) || args.seconds < 1 || args.seconds > 10) return 'Error: la espera debe durar entre uno y diez segundos.';
     if (job?.cancelled) return 'Error: operación cancelada.';
