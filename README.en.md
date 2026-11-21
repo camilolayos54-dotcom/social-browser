@@ -67,7 +67,7 @@ Open “Notas y recordatorios” under Acciones or “Notas” in the top bar. C
 
 Open “Notas” for the note explorer, editor, and preview. Save each note with **Guardar**; pending changes are saved when switching notes or closing the workspace. Files are stored in `notes/<profile-id>/<note-id>.md` under Electron's user data directory (on Linux, usually `~/.config/social-browser/`). The editor footer shows the full path. Notes from the previous version migrate on startup and retain their reminders. Preview supports headings, lists, bold, italics, and code; the file retains the complete Markdown text. If the file changes externally while editing, the app rejects the write to avoid overwriting it: use “Descartar cambios” to reload.
 
-The sidebars can be minimized with their header controls and expanded again from their icon rails. The left rail keeps networks and actions accessible; the right rail offers assistant shortcuts. Both sidebar states are remembered locally.
+The sidebars can be minimized with their header controls and expanded again from their icon rails. The left rail keeps networks accessible; the right sidebar is the main actions panel with all tools directly visible, saved searches, external agent connection, and optional assistant access. Both sidebar states are remembered locally.
 
 ## Facebook and Messenger tools without AI
 
@@ -77,4 +77,4 @@ Under “Respuestas guardadas”, create messages per profile and network, inclu
 
 Under “Oportunidades”, set pending, contacted, responded, or discarded status, add notes and schedule a reminder. Reminders are checked while the application is open; those due while closed appear when it is reopened. Text, results, notes, selected image paths and local images may be private; image files must remain available at their paths. None of these features requires an AI provider.
 
-The right-hand “Acciones” button groups tools that work without AI and can directly run a saved search; “Preguntar al asistente” is optional. External agent access is also controlled from that sidebar. The header shares space with the native window controls; press Alt to show the application menu.
+The right-hand “Acciones” panel displays tools that work without AI directly without nested menus and can run a saved search immediately; the AI assistant is optional and collapsible. External agent access is also controlled from that sidebar. The header shares space with the native window controls; press Alt to show the application menu.

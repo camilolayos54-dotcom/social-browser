@@ -67,7 +67,7 @@ Abre «Notas y recordatorios» en Acciones o «Notas» en la barra superior. Cre
 
 Abre «Notas» para ver el explorador y el editor con vista previa. Guarda cada nota con **Guardar**; al cambiar de nota o cerrar la ventana se guardan los cambios pendientes. Los archivos se guardan en `notes/<id-del-perfil>/<id-de-la-nota>.md` dentro de la carpeta de datos de Electron (en Linux, normalmente `~/.config/social-browser/`). La ruta completa aparece en el pie del editor. Las notas creadas con la versión anterior se migran al abrir la aplicación y conservan sus recordatorios. La vista previa admite títulos, listas, negrita, cursiva y código; el archivo conserva el texto Markdown completo. Si el archivo cambia fuera de la aplicación mientras lo editas, se rechaza la escritura para evitar sobrescribirlo: usa «Descartar cambios» para volver a cargarlo.
 
-Las barras laterales se pueden minimizar con los controles de sus cabeceras y ampliar de nuevo desde sus iconos. La barra izquierda mantiene accesibles las redes y acciones; la derecha ofrece accesos al asistente. El estado de ambas barras se recuerda en el equipo.
+Las barras laterales se pueden minimizar con los controles de sus cabeceras y ampliar de nuevo desde sus iconos. La barra izquierda mantiene accesibles las redes; la derecha es el panel principal con todas las acciones visibles directamente, búsquedas guardadas, conexión del agente y acceso al asistente. El estado de ambas barras se recuerda en el equipo.
 
 ## Herramientas de Facebook y Messenger sin IA
 
@@ -77,4 +77,4 @@ En «Respuestas guardadas» crea mensajes por perfil y red, incluido Messenger, 
 
 En «Oportunidades» asigna pendiente, contactada, respondida o descartada, añade notas y programa un recordatorio. Los avisos se comprueban mientras la aplicación está abierta; los vencidos durante el cierre aparecen al volver a abrirla. Los textos, resultados, notas, imágenes seleccionadas y rutas se guardan localmente y pueden ser privados; los archivos de imagen deben permanecer disponibles en su ubicación. Ninguna de estas funciones requiere un proveedor de IA.
 
-El botón «Acciones» de la barra derecha reúne las herramientas que funcionan sin IA y permite ejecutar una búsqueda guardada directamente; «Preguntar al asistente» es opcional. La conexión del agente externo también se controla desde esa barra. La cabecera comparte espacio con los controles nativos de la ventana; pulsa Alt para mostrar el menú de la aplicación.
+El panel de «Acciones» en la barra derecha reúne las herramientas que funcionan sin IA directamente visibles sin menús anidados y permite ejecutar una búsqueda guardada sin menús adicionales; el asistente de IA es opcional y desplegable. La conexión del agente externo también se controla desde esa barra. La cabecera comparte espacio con los controles nativos de la ventana; pulsa Alt para mostrar el menú de la aplicación.

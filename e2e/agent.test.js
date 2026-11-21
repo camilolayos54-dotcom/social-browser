@@ -46,6 +46,7 @@ test('the integrated assistant reads a page and saves a source-linked opportunit
     await page.locator('#url').fill(url);
     await page.locator('#address-form').dispatchEvent('submit');
     await page.waitForFunction(() => document.querySelector('.tab')?.textContent.includes('Tablón local'));
+    await page.locator('#assistant-tools summary').click();
     await page.locator('#prompt').fill('Busca personas que necesiten trasteo y guarda las oportunidades');
     await page.locator('#chat-form button[type=submit]').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('Solicitud terminada'));

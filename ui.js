@@ -42,22 +42,23 @@
   const updateAgentCaption = () => { const caption = document.getElementById('agent-access').textContent; const rail = document.getElementById('rail-agent'); rail.title = caption; rail.setAttribute('aria-label', caption); };
   new MutationObserver(updateAgentCaption).observe(document.getElementById('agent-access'), { childList: true, characterData: true, subtree: true });
   updateAgentCaption();
-  const actions = document.getElementById('agent-actions-dialog');
-  const openActions = () => {
-    const select = document.getElementById('actions-saved-search'); select.replaceChildren(new Option('Selecciona una búsqueda', ''));
-    for (const item of profile().savedFacebookSearches || []) select.add(new Option(item.name, item.id));
-    document.getElementById('actions-run-saved').disabled = !select.value;
-    actions.showModal();
-  };
   const savedSelect = document.getElementById('actions-saved-search');
+  const refreshSavedSearches = () => {
+    const selected = savedSelect.value; savedSelect.replaceChildren(new Option('Selecciona una búsqueda', ''));
+    for (const item of profile().savedFacebookSearches || []) savedSelect.add(new Option(item.name, item.id));
+    savedSelect.value = [...savedSelect.options].some(option => option.value === selected) ? selected : '';
+    document.getElementById('actions-run-saved').disabled = !savedSelect.value;
+  };
+  window.refreshSavedSearches = refreshSavedSearches;
   savedSelect.onchange = () => { document.getElementById('actions-run-saved').disabled = !savedSelect.value; };
-  document.getElementById('actions-run-saved').onclick = () => { const id = savedSelect.value; if (!id) return; actions.close(); void runSavedFacebookSearch(id); };
-  document.getElementById('rail-actions').onclick = openActions;
-  document.getElementById('agent-actions-button').onclick = openActions;
-  document.getElementById('agent-actions-close').onclick = () => actions.close();
-  actions.querySelectorAll('[data-action-target]').forEach(button => { button.onclick = () => { const target = button.dataset.actionTarget; actions.close(); if (target === 'assistant') { setRight(false); document.getElementById('prompt').focus(); } else document.getElementById(target).click(); }; });
+  document.getElementById('actions-run-saved').onclick = () => { if (savedSelect.value) void runSavedFacebookSearch(savedSelect.value); };
+  document.addEventListener('social-profile-rendered', refreshSavedSearches);
+  refreshSavedSearches();
+  document.querySelectorAll('.assistant-rail .rail-direct').forEach(button => {
+    button.onclick = () => document.getElementById(button.dataset.target).click();
+  });
   document.querySelectorAll('.assistant-rail .rail-action').forEach(button => {
-    button.onclick = () => { setRight(false); document.getElementById(button.dataset.focus).focus(); };
+    button.onclick = () => { setRight(false); document.getElementById('assistant-tools').open = true; document.getElementById(button.dataset.focus).focus(); };
   });
   document.querySelectorAll('button[aria-label]').forEach(button => { if (!button.title) button.title = button.getAttribute('aria-label'); });
   setLeft(read('social-sidebar-left-collapsed'));

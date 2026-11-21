@@ -43,6 +43,7 @@ test('configures an external compatible model, protects its key and supports tex
   try {
     app = await electron.launch({ executablePath: require('electron'), args });
     let page = await app.firstWindow();
+    await page.locator('#assistant-tools summary').click();
     await page.locator('#provider').selectOption('compatible');
     await page.locator('#model').fill('modelo-prueba');
     await page.locator('#compatible-endpoint').fill(endpoint);

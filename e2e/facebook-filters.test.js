@@ -27,7 +27,7 @@ test('filters visible posts, saves searches and tracks opportunities with remind
     await page.locator('#scan-results article').first().getByRole('button',{name:'Guardar oportunidad'}).click(); await page.locator('#scan-close').click();
     const localUrl = `http://127.0.0.1:${server.address().port}/`;
     await page.evaluate(url => { window.__originalOpenTab = openTab; openTab = () => window.__originalOpenTab(url); }, localUrl);
-    await page.locator('#agent-actions-button').click(); await page.locator('#actions-saved-search').selectOption({label:'Prueba Medellín'}); await page.locator('#actions-run-saved').click();
+    await page.locator('#actions-saved-search').selectOption({label:'Prueba Medellín'}); await page.locator('#actions-run-saved').click();
     await page.waitForFunction(() => !document.querySelector('#scan-stop').hidden, null, {timeout:10000});
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('social-state')).profiles[0].facebookScan.matches.length === 2);
     await page.locator('#scan-stop').click(); await page.waitForFunction(() => document.querySelector('#scan-status').textContent.includes('Detenida'));

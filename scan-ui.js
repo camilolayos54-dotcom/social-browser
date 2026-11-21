@@ -31,6 +31,7 @@ function renderPresets() {
   $('scan-preset').replaceChildren(new Option('Selecciona una búsqueda guardada', ''));
   for (const item of profile().savedFacebookSearches || []) $('scan-preset').add(new Option(item.name, item.id));
   $('scan-preset').value = selected;
+  window.refreshSavedSearches?.();
 }
 function scanFilters() { return { location: $('scan-location').value.trim(), exclude: $('scan-exclude').value.trim(), since: $('scan-since').value }; }
 $('scan-preset').onchange = () => {

@@ -154,18 +154,116 @@ function render() {
   $('memory-mode').textContent = state.limitMemory ? 'Ahorro activado' : 'Ahorro de memoria';
   $('memory-mode').setAttribute('aria-pressed', String(Boolean(state.limitMemory)));
   renderTabs();
+  renderShortcuts();
   save();
   document.dispatchEvent(new Event('social-profile-rendered'));
 }
 function openTab(url) { profile().tabs.push(newTab(url)); profile().activeTab = profile().tabs.length - 1; render(); }
 function currentView() { return views.get(tab().id); }
-const networkIcons = { Facebook: 'f', Instagram: 'IG', Messenger: 'M', WhatsApp: 'WA', X: 'X', LinkedIn: 'in', TikTok: '♪', YouTube: '▶' };
-Object.entries(networks).forEach(([name, url]) => {
-  const b = document.createElement('button'); b.className = 'network-action'; b.title = name; b.setAttribute('aria-label', name);
-  const icon = document.createElement('span'); icon.className = 'nav-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = networkIcons[name];
-  const label = document.createElement('span'); label.className = 'nav-label'; label.textContent = name;
-  b.append(icon, label); b.onclick = () => openTab(url); $('shortcuts').append(b);
+const networkIcons = { Facebook: 'f', Instagram: 'IG', Messenger: 'M', WhatsApp: 'WA', X: 'X', LinkedIn: 'in', TikTok: '♪', YouTube: '▶', Reddit: 'r/', 'Hacker News': 'HN', 'Product Hunt': 'PH', 'Indie Hackers': 'IH', GitHub: 'GH', 'Dev.to': 'DV', Hashnode: 'H', Medium: 'Md', Discord: 'DC', 'Stack Overflow': 'SO', 'Google Business': 'GB', 'Google Maps': 'GM', Marketplace: 'MP', OLX: 'OL' };
+const defaultNetworkList = () => Object.entries(networks).map(([name, url]) => ({ name, url, icon: networkIcons[name] || name.slice(0, 2).toUpperCase() }));
+const networkPresets = {
+  cove: [
+    { name: 'Facebook', url: 'https://www.facebook.com', icon: 'f' },
+    { name: 'Marketplace', url: 'https://www.facebook.com/marketplace', icon: 'MP' },
+    { name: 'Messenger', url: 'https://www.messenger.com', icon: 'M' },
+    { name: 'WhatsApp', url: 'https://web.whatsapp.com', icon: 'WA' },
+    { name: 'Instagram', url: 'https://www.instagram.com', icon: 'IG' },
+    { name: 'Google Business', url: 'https://business.google.com', icon: 'GB' },
+    { name: 'Google Maps', url: 'https://www.google.com/maps', icon: 'GM' },
+    { name: 'TikTok', url: 'https://www.tiktok.com', icon: '♪' },
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: '▶' },
+    { name: 'OLX', url: 'https://www.olx.com.co', icon: 'OL' }
+  ],
+  lessteps: [
+    { name: 'Reddit', url: 'https://www.reddit.com', icon: 'r/' },
+    { name: 'Hacker News', url: 'https://news.ycombinator.com', icon: 'HN' },
+    { name: 'Product Hunt', url: 'https://www.producthunt.com', icon: 'PH' },
+    { name: 'Indie Hackers', url: 'https://www.indiehackers.com', icon: 'IH' },
+    { name: 'X', url: 'https://x.com', icon: 'X' },
+    { name: 'LinkedIn', url: 'https://www.linkedin.com', icon: 'in' },
+    { name: 'GitHub', url: 'https://github.com', icon: 'GH' },
+    { name: 'Dev.to', url: 'https://dev.to', icon: 'DV' },
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: '▶' },
+    { name: 'Instagram', url: 'https://www.instagram.com', icon: 'IG' },
+    { name: 'Facebook', url: 'https://www.facebook.com', icon: 'f' },
+    { name: 'TikTok', url: 'https://www.tiktok.com', icon: '♪' },
+    { name: 'Discord', url: 'https://discord.com/app', icon: 'DC' }
+  ],
+  personal: [
+    { name: 'GitHub', url: 'https://github.com', icon: 'GH' },
+    { name: 'LinkedIn', url: 'https://www.linkedin.com', icon: 'in' },
+    { name: 'X', url: 'https://x.com', icon: 'X' },
+    { name: 'Dev.to', url: 'https://dev.to', icon: 'DV' },
+    { name: 'Hashnode', url: 'https://hashnode.com', icon: 'H' },
+    { name: 'Medium', url: 'https://medium.com', icon: 'Md' },
+    { name: 'Reddit', url: 'https://www.reddit.com', icon: 'r/' },
+    { name: 'Hacker News', url: 'https://news.ycombinator.com', icon: 'HN' },
+    { name: 'Stack Overflow', url: 'https://stackoverflow.com', icon: 'SO' },
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: '▶' },
+    { name: 'Instagram', url: 'https://www.instagram.com', icon: 'IG' }
+  ],
+  default: defaultNetworkList()
+};
+function profileNetworks(owner = profile()) {
+  if (!Array.isArray(owner.networks)) {
+    const key = (owner.name || '').toLowerCase();
+    const preset = key.includes('cove') ? networkPresets.cove : key.includes('lessteps') ? networkPresets.lessteps : key.includes('personal') ? networkPresets.personal : networkPresets.default;
+    owner.networks = preset.map(item => ({ ...item }));
+  }
+  return owner.networks;
+}
+function renderShortcuts() {
+  const items = profileNetworks();
+  $('shortcuts').replaceChildren(...items.map(item => {
+    const b = document.createElement('button'); b.className = 'network-action'; b.title = item.name; b.setAttribute('aria-label', item.name);
+    const icon = document.createElement('span'); icon.className = 'nav-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = item.icon || networkIcons[item.name] || item.name.slice(0, 2).toUpperCase();
+    const label = document.createElement('span'); label.className = 'nav-label'; label.textContent = item.name;
+    b.append(icon, label); b.onclick = () => openTab(item.url);
+    return b;
+  }));
+}
+function renderNetworksDialog() {
+  const owner = profile();
+  $('networks-profile-name').textContent = owner.name;
+  const items = profileNetworks(owner);
+  $('networks-list').replaceChildren(...items.map((item, idx) => {
+    const row = document.createElement('div'); row.className = 'network-item';
+    const badge = document.createElement('span'); badge.className = 'network-badge'; badge.textContent = item.icon || item.name.slice(0, 2).toUpperCase();
+    const meta = document.createElement('div'); meta.className = 'network-meta';
+    const title = document.createElement('strong'); title.textContent = item.name;
+    const url = document.createElement('small'); url.textContent = item.url;
+    meta.append(title, url);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'remove-network'; remove.textContent = '✕'; remove.title = `Quitar ${item.name}`; remove.setAttribute('aria-label', `Quitar ${item.name}`);
+    remove.onclick = () => { items.splice(idx, 1); save(); renderShortcuts(); renderNetworksDialog(); };
+    row.append(badge, meta, remove);
+    return row;
+  }));
+}
+$('manage-networks').onclick = () => { renderNetworksDialog(); $('networks-dialog').showModal(); };
+$('close-networks').onclick = () => $('networks-dialog').close();
+$('network-presets').querySelectorAll('[data-preset]').forEach(btn => {
+  btn.onclick = () => {
+    const preset = networkPresets[btn.dataset.preset];
+    if (!preset) return;
+    profile().networks = preset.map(item => ({ ...item }));
+    save(); renderShortcuts(); renderNetworksDialog();
+  };
 });
+$('network-form').onsubmit = event => {
+  event.preventDefault();
+  const name = $('network-name').value.trim();
+  let rawUrl = $('network-url').value.trim();
+  if (!name || !rawUrl) return;
+  if (!/^https?:\/\//i.test(rawUrl)) rawUrl = `https://${rawUrl}`;
+  let parsed;
+  try { parsed = new URL(rawUrl); } catch { return; }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return;
+  const icon = $('network-icon').value.trim() || networkIcons[name] || name.slice(0, 2).toUpperCase();
+  profileNetworks().push({ name, url: parsed.href, icon });
+  $('network-form').reset();
+  save(); renderShortcuts(); renderNetworksDialog();
+};
 let profileBeingRenamed = null;
 $('add-profile').onclick = () => { profileBeingRenamed = null; $('profile-dialog-title').textContent = 'Nuevo perfil'; $('profile-name').value = ''; $('profile-dialog').showModal(); };
 $('rename-profile').onclick = () => { profileBeingRenamed = profile(); $('profile-dialog-title').textContent = 'Renombrar perfil'; $('profile-name').value = profileBeingRenamed.name; $('profile-dialog').showModal(); };
@@ -741,7 +839,11 @@ async function performAction(owner, call, job) {
       if (['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password) url = parsed.href;
     } catch {}
   }
-  if (call.name === 'open_network' && typeof args.network === 'string' && Object.hasOwn(networks, args.network)) url = networks[args.network];
+  if (call.name === 'open_network' && typeof args.network === 'string') {
+    const custom = profileNetworks(owner).find(item => item.name.toLowerCase() === args.network.trim().toLowerCase());
+    if (custom) url = custom.url;
+    else if (Object.hasOwn(networks, args.network)) url = networks[args.network];
+  }
   if (call.name === 'open_inbox' && typeof args.network === 'string' && Object.hasOwn(inboxes, args.network)) url = inboxes[args.network];
   if ((call.name === 'search_facebook' || call.name === 'search_web') && typeof args.query === 'string' && args.query.trim() && args.query.length <= 500) {
     const query = encodeURIComponent(args.query.trim());
