@@ -1,7 +1,7 @@
 let facebookScanJob = null;
 let scanDialogOwner = null;
 let scanResultsVisible = true;
-const DEFAULT_FREQUENT_TERMS = ['trasteos', 'mudanzas', 'acarreos', 'fletes'];
+const DEFAULT_FREQUENT_TERMS = ['necesito mudanza', 'trasteo', 'barbacha', 'trasteos', 'mudanzas', 'acarreos', 'fletes'];
 const DEFAULT_FREQUENT_LOCATIONS = ['Medellín', 'Envigado', 'Bello', 'Itagüí', 'Sabaneta'];
 function facebookPage(url) {
   try { const value = new URL(url); return value.protocol === 'https:' && /(^|\.)facebook\.com$/i.test(value.hostname) && !value.username && !value.password; } catch { return false; }
@@ -97,6 +97,10 @@ function renderFacebookScan() {
     } else if (item.intent === 'ad') {
       const badge = document.createElement('span'); badge.className = 'intent-badge intent-ad'; badge.textContent = 'Anuncio';
       meta.append(badge);
+    }
+    if (item.matchedTerm) {
+      const kw = document.createElement('span'); kw.className = 'intent-badge'; kw.textContent = `🔑 ${item.matchedTerm}`;
+      meta.append(kw);
     }
     const locTag = item.location ? ` · ${item.location}` : '';
     meta.append(document.createTextNode((item.url ? 'Enlace detectado · pendiente de revisión' : 'Sin enlace directo · revisión manual') + locTag));
@@ -201,6 +205,21 @@ $('scan-open-search').onclick = () => {
   renderFrequentChips();
   openTab(`https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`);
 };
+if ($('scan-open-all-searches')) {
+  $('scan-open-all-searches').onclick = () => {
+    const terms = $('scan-phrase').value.split(',').map(value => value.trim()).filter(Boolean).slice(0, 5);
+    if (!terms.length) { $('scan-status').textContent = 'Indica al menos una palabra clave.'; return; }
+    const location = $('scan-location').value.split(',').map(value => value.trim()).find(Boolean);
+    recordFrequentWords(profile(), $('scan-phrase').value, $('scan-location').value);
+    try { save(); } catch {}
+    renderFrequentChips();
+    for (const term of terms) {
+      const query = [term, location].filter(Boolean).join(' ');
+      openTab(`https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`);
+    }
+    $('scan-status').textContent = `Se abrieron ${terms.length} búsquedas en Facebook.`;
+  };
+}
 async function runSavedFacebookSearch(id) {
   const owner = profile(), preset = (owner.savedFacebookSearches || []).find(item => item.id === id);
   if (!preset) return;
@@ -229,7 +248,7 @@ $('scan-start').onclick = async () => { const minutes = Number($('scan-minutes')
 async function startFacebookScan(owner, phrase, seconds, caller = null, filters = {}) {
   if (facebookScanJob) return 'Error: ya hay una detección en curso.';
   if (owner !== profile()) return 'Error: selecciona primero el perfil que quieres revisar.';
-  if (typeof phrase !== 'string' || !phrase.trim() || phrase.length > 120 || !Number.isFinite(seconds) || seconds < 1 || seconds > 300) return 'Error: indica una frase y una duración de hasta cinco minutos.';
+  if (typeof phrase !== 'string' || !phrase.trim() || phrase.length > 500 || !Number.isFinite(seconds) || seconds < 1 || seconds > 300) return 'Error: indica una frase y una duración de hasta cinco minutos.';
   if (typeof filters.location !== 'string' && filters.location !== undefined || typeof filters.exclude !== 'string' && filters.exclude !== undefined || typeof filters.since !== 'string' && filters.since !== undefined || (filters.location || '').length > 100 || (filters.exclude || '').length > 200 || (filters.since && (!/^\d{4}-\d{2}-\d{2}$/.test(filters.since) || Number.isNaN(Date.parse(`${filters.since}T00:00:00`))))) return 'Error: filtros inválidos.';
   const selected = owner.tabs[owner.activeTab], view = selected && views.get(selected.id);
   if (!view || !facebookPage(selected.url)) return 'Error: abre primero Facebook en la pestaña activa.';
@@ -285,7 +304,7 @@ async function startFacebookScan(owner, phrase, seconds, caller = null, filters 
           const text = found.text.slice(0, 1200), url = facebookPage(found.url) ? found.url : '';
           const records = owner.facebookScan.matches;
           if (!records.some(item => url ? item.url === url : !item.url && item.text === text) && records.length < 300) {
-            records.push({ text, url, phrase: job.phrase, location: job.filters.location || '', date: typeof found.date === 'string' ? found.date.slice(0, 80) : '', intent: found.intent || 'neutral', foundAt: new Date().toISOString() });
+            records.push({ text, url, phrase: job.phrase, matchedTerm: found.matchedTerm || '', location: job.filters.location || '', date: typeof found.date === 'string' ? found.date.slice(0, 80) : '', intent: found.intent || 'neutral', foundAt: new Date().toISOString() });
             added++;
             if (!firstNewText) firstNewText = text;
           }

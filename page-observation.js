@@ -62,7 +62,12 @@ function pageObservation(operation, options) {
   }
   if (operation === 'scan_matches') {
     const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
-    const matchesTerm = (haystack, term) => haystack.includes(term) || (term.length > 4 && term.endsWith('s') && haystack.includes(term.slice(0, -1)));
+    const matchSingleWord = (haystack, word) => haystack.includes(word) || (word.length > 4 && word.endsWith('s') && haystack.includes(word.slice(0, -1)));
+    const matchesTerm = (haystack, term) => {
+      if (matchSingleWord(haystack, term)) return true;
+      const words = term.split(' ').filter(w => w.length > 2);
+      return words.length > 1 && words.every(w => matchSingleWord(haystack, w));
+    };
     const uiNoisePatterns = ['se incluyen los resultados para', 'en su lugar, buscar', 'showing results for', 'search instead for', 'no encontramos resultados', 'fin de los resultados'];
     const clientSignals = ['necesito', 'busco', 'alguien recomienda', 'recomiendan', 'quien hace', 'alguien sabe', 'cotizacion', 'cotizar', 'urgente', 'cuanto cuesta', 'quien me ayuda', 'para hoy', 'para manana', 'requiero'];
     const adSignals = ['ofrecemos', 'contamos con', 'servicio de trasteo', 'servicio de mudanza', 'llamanos', 'comunicate al', 'cotiza con nosotros', 'somos empresa', 'disponibilidad inmediata'];
@@ -122,7 +127,8 @@ function pageObservation(operation, options) {
       if (!normalizedText || uiNoisePatterns.some(noise => normalizedText.includes(noise))) { ranges.length = beforeRanges; continue; }
       const date = article.querySelector('time[datetime]')?.getAttribute('datetime') || '';
       const dateValue = date ? Date.parse(date) : NaN;
-      if (!terms.some(term => matchesTerm(normalizedText, term)) || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => matchesTerm(normalizedText, term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
+      const matchedTerm = terms.find(term => matchesTerm(normalizedText, term));
+      if (!matchedTerm || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => matchesTerm(normalizedText, term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
       const hasClient = clientSignals.some(sig => normalizedText.includes(sig));
       const hasAd = adSignals.some(sig => normalizedText.includes(sig));
       const intent = hasClient && !hasAd ? 'client' : hasAd && !hasClient ? 'ad' : 'neutral';
@@ -135,7 +141,7 @@ function pageObservation(operation, options) {
           return /\/(posts|permalink|photo|videos?|reel)\b/i.test(url.pathname) || (/\/(story|permalink)\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')) || url.searchParams.has('fbid') || url.searchParams.has('multi_permalinks') || /pfbid/i.test(url.pathname);
         } catch { return false; }
       });
-      matches.push({ text, url: links[0] || '', date, intent });
+      matches.push({ text, url: links[0] || '', date, intent, matchedTerm });
     }
     if (globalThis.CSS?.highlights && typeof Highlight !== 'undefined') {
       if (!document.getElementById('social-scan-highlight-style')) { const style = document.createElement('style'); style.id = 'social-scan-highlight-style'; style.textContent = '::highlight(social-scan-match) { background-color: #fff176; color: #171717; }'; document.head?.append(style); }

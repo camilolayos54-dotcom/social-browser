@@ -1,6 +1,6 @@
 // Scan the bound page until the deadline, user cancellation, or repeated end-of-content.
 async function scanFacebookPage({ phrase, seconds, observe, scroll, wait, cancelled, onMatches, onProgress, intervalMs = 2000, maxStalled = 8, now = Date.now }) {
-  if (typeof phrase !== 'string' || !phrase.trim() || phrase.length > 120 || !Number.isFinite(seconds) || seconds < 1 || seconds > 300) throw new Error('Frase o duración inválida.');
+  if (typeof phrase !== 'string' || !phrase.trim() || phrase.length > 500 || !Number.isFinite(seconds) || seconds < 1 || seconds > 300) throw new Error('Frase o duración inválida.');
   const stepMs = Number.isFinite(intervalMs) && intervalMs >= 150 && intervalMs <= 5000 ? intervalMs : 2000;
   const deadline = now() + seconds * 1000;
   let stalled = 0, passes = 0, scannedTotal = 0;
