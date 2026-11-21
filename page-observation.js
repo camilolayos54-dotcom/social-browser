@@ -62,6 +62,8 @@ function pageObservation(operation, options) {
   }
   if (operation === 'scan_matches') {
     const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+    const matchesTerm = (haystack, term) => haystack.includes(term) || (term.length > 4 && term.endsWith('s') && haystack.includes(term.slice(0, -1)));
+    const uiNoisePatterns = ['se incluyen los resultados para', 'en su lugar, buscar', 'showing results for', 'search instead for', 'no encontramos resultados', 'fin de los resultados'];
     const terms = String(options.phrase || '').split(',').map(normalize).filter(Boolean);
     const locations = String(options.location || '').split(',').map(normalize).filter(Boolean);
     const exclusions = String(options.exclude || '').split(',').map(normalize).filter(Boolean);
@@ -77,18 +79,29 @@ function pageObservation(operation, options) {
       while ((node = walker.nextNode()) && examined++ < 2000) {
         const parent = node.parentElement;
         if (!parent || parent.closest('script,style,textarea,input,[hidden],[aria-hidden="true"]')) continue;
-        const range = document.createRange(); range.selectNodeContents(node);
+        const style = getComputedStyle(parent);
+        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue;
         const text = node.nodeValue.replace(/\s+/g, ' ').trim();
-        if (text && inViewport(parent, range.getBoundingClientRect())) { parts.push(text); if (terms.some(term => normalize(text).includes(term))) ranges.push(range); }
+        if (!text) continue;
+        parts.push(text);
+        if (terms.some(term => matchesTerm(normalize(text), term))) {
+          const range = document.createRange(); range.selectNodeContents(node);
+          if (inViewport(parent, range.getBoundingClientRect())) ranges.push(range);
+        }
       }
       const text = parts.join(' ').slice(0, 1200);
       const normalizedText = normalize(text);
+      if (!normalizedText || uiNoisePatterns.some(noise => normalizedText.includes(noise))) { ranges.length = beforeRanges; continue; }
       const date = article.querySelector('time[datetime]')?.getAttribute('datetime') || '';
       const dateValue = date ? Date.parse(date) : NaN;
-      if (!terms.some(term => normalizedText.includes(term)) || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => normalizedText.includes(term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
+      if (!terms.some(term => matchesTerm(normalizedText, term)) || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => matchesTerm(normalizedText, term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
       if (ranges.length === beforeRanges) { const range = document.createRange(); range.selectNodeContents(article); ranges.push(range); }
       const links = Array.from(article.querySelectorAll('a[href]')).map(a => a.href).filter(href => {
-        try { const url = new URL(href); return /(^|\.)facebook\.com$/i.test(url.hostname) && (/\/(posts|permalink)\//i.test(url.pathname) || /\/story\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')); } catch { return false; }
+        try {
+          const url = new URL(href);
+          if (!/(^|\.)facebook\.com$/i.test(url.hostname)) return false;
+          return /\/(posts|permalink|photo|videos?|reel)\b/i.test(url.pathname) || (/\/(story|permalink)\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')) || url.searchParams.has('fbid') || url.searchParams.has('multi_permalinks') || /pfbid/i.test(url.pathname);
+        } catch { return false; }
       });
       matches.push({ text, url: links[0] || '', date });
     }
