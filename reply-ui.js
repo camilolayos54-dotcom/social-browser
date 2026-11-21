@@ -73,7 +73,14 @@ async function prepareApprovedReply(approval) {
     const payload = { ...snapshot, text, files: review.images.map(file => file.split(/[\\/]/).pop()) }
     const fill = await replyExecute(view, 'fill', payload); if (fill.error) throw new Error(fill.error);
     if (review.images.length) await window.desktop.attachReplyImages({ guestId: view.getWebContentsId(), url, token, files: review.images });
-    const preview = await replyExecute(view, 'preview', payload); if (preview.error) throw new Error(preview.error);
+    let preview;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      preview = await replyExecute(view, 'preview', payload);
+      if (!preview.error || !preview.error.includes('botón de envío visible')) break;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    if (preview.error) throw new Error(preview.error);
+    payload.button = preview.button;
     review.prepared = { view, payload }; $('reply-submit').disabled = false;
     $('reply-status').textContent = 'Comentario preparado. Revisa el contenido antes de aprobar el envío.';
   } catch (error) { $('reply-status').textContent = `No se preparó la respuesta: ${error.message}`; }

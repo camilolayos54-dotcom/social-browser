@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, safeStorage, Notification, clipboard, dialog, webContents, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, session, safeStorage, Notification, clipboard, dialog, webContents, nativeImage, Menu } = require('electron');
 const path = require('path');
 
 if (process.platform === 'linux') app.setDesktopName('social-browser.desktop');
@@ -11,7 +11,7 @@ function installAltMenu(contents) {
   contents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'Alt' && !input.isAutoRepeat && !input.control && !input.shift && !input.meta) {
       event.preventDefault();
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setMenuBarVisibility(!mainWindow.isMenuBarVisible());
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('toggle-application-menu');
     }
   });
 }
@@ -20,7 +20,7 @@ const configuredSessions = new WeakSet();
 const sessionPartitions = new WeakMap();
 app.whenReady().then(() => {
   credentials = new (require('./credentials').CredentialStore)(app.getPath('userData'), safeStorage);
-  mainWindow = new BrowserWindow({ width: 1440, height: 900, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 900, autoHideMenuBar: true, titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: '#191919', symbolColor: '#e9e9e9', height: 42 } }), webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, webviewTag: true } });
   installAltMenu(mainWindow.webContents);
   mainWindow.webContents.on('will-attach-webview', (event, prefs, params) => {
     prefs.preload = path.join(__dirname, 'guest-preload.js');
@@ -193,4 +193,17 @@ ipcMain.handle('reply-image-previews', async (event, files) => {
     const info = await fs.stat(file); if (!info.isFile() || info.size > 20 * 1024 * 1024) throw new Error('Revisa que cada imagen exista y no supere 20 MB.');
     const image = nativeImage.createFromPath(file); return { path: file, preview: image.isEmpty() ? '' : image.resize({ width: 160, quality: 'good' }).toDataURL() };
   }));
+});
+
+ipcMain.handle('application-menu-items', event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado.');
+  return (Menu.getApplicationMenu()?.items || []).map((item, index) => ({ index, label: item.label.replace(/&/g, ''), enabled: item.enabled && item.visible && Boolean(item.submenu) })).filter(item => item.enabled);
+});
+ipcMain.handle('application-menu-popup', async (event, request) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Origen no autorizado.');
+  const item = Menu.getApplicationMenu()?.items[request?.index];
+  if (!item?.submenu || !item.enabled || !item.visible) throw new Error('Menú no disponible.');
+  const x = Number.isFinite(request.x) ? Math.max(0, Math.floor(request.x)) : 0;
+  const y = Number.isFinite(request.y) ? Math.max(0, Math.floor(request.y)) : 0;
+  return new Promise(resolve => item.submenu.popup({ window: mainWindow, x, y, callback: resolve }));
 });

@@ -2,7 +2,7 @@ const test = require('node:test'); const assert = require('node:assert/strict');
 const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path'); const http = require('node:http');
 const { _electron: electron } = require('playwright-core');
 test('a prepared reply cannot be sent until explicitly approved and rejects changed content', {timeout:45000}, async () => {
-  const server = http.createServer((_,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8'); res.end('<title>Publicación de prueba</title><form><textarea aria-label="Escribe un comentario"></textarea><button type="button" onclick="document.body.dataset.sends=String(Number(document.body.dataset.sends||0)+1)">Publicar</button></form>');});
+  const server = http.createServer((_,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8'); res.end('<title>Publicación de prueba</title><form><textarea aria-label="Escribe un comentario" oninput="this.nextElementSibling.hidden=false"></textarea><button hidden type="button" onclick="document.body.dataset.sends=String(Number(document.body.dataset.sends||0)+1)">Publicar</button></form>');});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); const dir=fs.mkdtempSync(path.join(os.tmpdir(),'social-reply-'));
   const args=['--disable-gpu',`--user-data-dir=${dir}`,path.resolve(__dirname,'..')]; if(process.env.SOCIAL_BROWSER_TEST_NO_SANDBOX==='1')args.unshift('--no-sandbox'); let app;
   try {

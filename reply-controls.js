@@ -14,19 +14,19 @@ function replyControl(operation, payload) {
     const field = candidates[0], scope = field.closest('form,[role="dialog"],article,[role="article"]');
     if (!scope) return { error:'No se pudo identificar el formulario de esta publicación.' };
     const buttons = buttonsIn(scope);
-    if (buttons.length !== 1) return { error:'No se encontró un único botón de envío en el mismo formulario.' };
+    if (buttons.length > 1) return { error:'Hay varios botones de envío posibles en el formulario.' };
     const inputs = Array.from(scope.querySelectorAll('input[type="file"]')).filter(el => !el.disabled && (!el.accept || /image|png|jpeg|jpg|webp|gif/i.test(el.accept)));
     if (payload.images && inputs.length !== 1) return { error:'No se encontró un único selector de imágenes en el comentario.' };
-    field.setAttribute(marker, `${payload.token}-field`); buttons[0].setAttribute(marker, `${payload.token}-button`);
+    field.setAttribute(marker, `${payload.token}-field`); if (buttons[0]) buttons[0].setAttribute(marker, `${payload.token}-button`);
     if (inputs.length === 1) inputs[0].setAttribute(marker, `${payload.token}-file`);
-    return { url: location.href, token: payload.token, button: label(buttons[0]), fileAvailable: inputs.length === 1 };
+    return { url: location.href, token: payload.token, button: buttons[0] ? label(buttons[0]) : '', fileAvailable: inputs.length === 1 };
   }
   if (location.href !== payload.url) return { error:'La página cambió; prepara la respuesta nuevamente.' };
   const find = suffix => document.querySelector(`[${marker}="${payload.token}-${suffix}"]`);
-  const field = find('field'), button = find('button'), file = find('file');
-  if (!field || !button || !visible(field) || !visible(button) || !allowed(field) || label(button) !== payload.button) return { error:'El formulario cambió; prepara la respuesta nuevamente.' };
+  const field = find('field'), file = find('file'); let button = find('button');
+  if (!field || !visible(field) || !allowed(field)) return { error:'El formulario cambió; prepara la respuesta nuevamente.' };
   const scope = field.closest('form,[role="dialog"],article,[role="article"]');
-  if (!scope || !scope.contains(button) || buttonsIn(scope).length !== 1 || (file && !scope.contains(file))) return { error:'El formulario dejó de ser inequívoco.' };
+  if (!scope || (file && !scope.contains(file))) return { error:'El formulario dejó de ser inequívoco.' };
   if (operation === 'fill') {
     field.focus();
     if (field instanceof HTMLTextAreaElement) Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,payload.text);
@@ -35,6 +35,9 @@ function replyControl(operation, payload) {
     field.dispatchEvent(new Event('change',{bubbles:true}));
     return { ok:true };
   }
+  const buttons = buttonsIn(scope);
+  if (!button && operation === 'preview' && buttons.length === 1) { button = buttons[0]; button.setAttribute(marker, `${payload.token}-button`); }
+  if (!button || !visible(button) || !scope.contains(button) || buttons.length !== 1 || (payload.button && label(button) !== payload.button)) return { error:'No se encontró un único botón de envío visible; termina la respuesta manualmente.' };
   const files = file ? Array.from(file.files || []).map(item => item.name) : [];
   if (value(field).trim() !== payload.text.trim() || JSON.stringify(files) !== JSON.stringify(payload.files)) return { error:'El texto o las imágenes cambiaron. Revisa y prepara la respuesta nuevamente.' };
   if (operation === 'submit') { button.click(); return { ok:true }; }

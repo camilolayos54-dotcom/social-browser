@@ -16,8 +16,10 @@ test('Markdown notes persist, migrate, preview, respect profiles and preserve re
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarAutoHide()), true);
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.sendInputEvent({type:'keyDown',keyCode:'Alt'}));
     await page.waitForTimeout(100);
-    assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible()), true);
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setMenuBarVisibility(false));
+    await page.waitForFunction(() => !document.querySelector('#application-menu').hidden);
+    assert((await page.locator('#application-menu button').count()) > 0);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.sendInputEvent({type:'keyDown',keyCode:'Alt'}));
+    await page.waitForFunction(() => document.querySelector('#application-menu').hidden);
     await page.locator('#notes-button').click();
     assert.equal(await page.locator('#notes-panel').evaluate(e => e.open), true);
     await page.evaluate(() => { for (const [id, value] of [['note-title', 'Idea inicial'], ['note-body', '## Título\n\nTexto **importante**\n- elemento']]) { const field = document.getElementById(id); field.value = value; field.dispatchEvent(new Event('input', { bubbles: true })); } });

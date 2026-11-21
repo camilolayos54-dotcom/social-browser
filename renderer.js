@@ -18,6 +18,7 @@ for (const p of state.profiles) {
   if (!Array.isArray(p.tabs) || !p.tabs.length) p.tabs = [newTab()];
   p.activeTab = Math.min(Math.max(Number(p.activeTab) || 0, 0), p.tabs.length - 1);
   if (p.xSearch?.status === 'running') p.xSearch.status = 'interrupted';
+  if (p.facebookScan?.status === 'En curso') p.facebookScan.status = 'Búsqueda interrumpida al cerrar la aplicación; se conservaron los resultados.';
 }
 if (Number.isInteger(state.tab)) state.profiles[state.profile].activeTab = Math.min(state.tab, state.profiles[state.profile].tabs.length - 1);
 delete state.tab;
@@ -532,8 +533,6 @@ $('address-form').onsubmit = e => { e.preventDefault(); const value = $('url').v
 $('back').onclick = () => { const view = currentView(); if (view.canGoBack()) view.goBack(); };
 $('forward').onclick = () => { const view = currentView(); if (view.canGoForward()) view.goForward(); };
 $('reload').onclick = () => currentView().reload();
-// The header assistant control shares the persistent sidebar state.
-$('toggle-ai').onclick = () => window.toggleAssistantSidebar();
 const defaultModels = { ollama: 'llama3.2', openai: 'gpt-4.1-mini', compatible: '' };
 const savedSettings = state.aiSettings && typeof state.aiSettings === 'object' ? state.aiSettings : {};
 const savedModels = savedSettings.models && typeof savedSettings.models === 'object' ? savedSettings.models : {};

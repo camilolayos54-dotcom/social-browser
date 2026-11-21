@@ -18,13 +18,44 @@
     assistant.classList.toggle('collapsed', collapsed);
     rightToggle.setAttribute('aria-expanded', String(!collapsed));
     expandAssistant.setAttribute('aria-expanded', String(!collapsed));
-    document.getElementById('toggle-ai').setAttribute('aria-expanded', String(!collapsed));
     persist('social-sidebar-right-collapsed', collapsed);
   }
   leftToggle.onclick = () => setLeft(!nav.classList.contains('collapsed'));
   rightToggle.onclick = () => setRight(true);
   expandAssistant.onclick = () => setRight(false);
   window.toggleAssistantSidebar = () => setRight(!assistant.classList.contains('collapsed'));
+  document.body.dataset.platform = window.desktop.platform;
+  const applicationMenu = document.getElementById('application-menu');
+  window.desktop.onToggleApplicationMenu(async () => {
+    if (!applicationMenu.hidden) { applicationMenu.hidden = true; return; }
+    try {
+      const items = await window.desktop.applicationMenuItems(); applicationMenu.replaceChildren();
+      for (const item of items) {
+        const button = document.createElement('button'); button.textContent = item.label;
+        button.onclick = async () => { const box = button.getBoundingClientRect(); try { await window.desktop.openApplicationMenu({ index: item.index, x: box.left, y: box.bottom }); } finally { applicationMenu.hidden = true; } };
+        applicationMenu.append(button);
+      }
+      applicationMenu.hidden = false; applicationMenu.querySelector('button')?.focus();
+    } catch { applicationMenu.hidden = true; }
+  });
+  document.getElementById('rail-agent').onclick = () => document.getElementById('agent-access').click();
+  const updateAgentCaption = () => { const caption = document.getElementById('agent-access').textContent; const rail = document.getElementById('rail-agent'); rail.title = caption; rail.setAttribute('aria-label', caption); };
+  new MutationObserver(updateAgentCaption).observe(document.getElementById('agent-access'), { childList: true, characterData: true, subtree: true });
+  updateAgentCaption();
+  const actions = document.getElementById('agent-actions-dialog');
+  const openActions = () => {
+    const select = document.getElementById('actions-saved-search'); select.replaceChildren(new Option('Selecciona una búsqueda', ''));
+    for (const item of profile().savedFacebookSearches || []) select.add(new Option(item.name, item.id));
+    document.getElementById('actions-run-saved').disabled = !select.value;
+    actions.showModal();
+  };
+  const savedSelect = document.getElementById('actions-saved-search');
+  savedSelect.onchange = () => { document.getElementById('actions-run-saved').disabled = !savedSelect.value; };
+  document.getElementById('actions-run-saved').onclick = () => { const id = savedSelect.value; if (!id) return; actions.close(); void runSavedFacebookSearch(id); };
+  document.getElementById('rail-actions').onclick = openActions;
+  document.getElementById('agent-actions-button').onclick = openActions;
+  document.getElementById('agent-actions-close').onclick = () => actions.close();
+  actions.querySelectorAll('[data-action-target]').forEach(button => { button.onclick = () => { const target = button.dataset.actionTarget; actions.close(); if (target === 'assistant') { setRight(false); document.getElementById('prompt').focus(); } else document.getElementById(target).click(); }; });
   document.querySelectorAll('.assistant-rail .rail-action').forEach(button => {
     button.onclick = () => { setRight(false); document.getElementById(button.dataset.focus).focus(); };
   });

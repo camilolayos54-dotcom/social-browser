@@ -1,5 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  platform: process.platform,
+  applicationMenuItems: () => ipcRenderer.invoke('application-menu-items'),
+  openApplicationMenu: request => ipcRenderer.invoke('application-menu-popup', request),
+  onToggleApplicationMenu: callback => ipcRenderer.on('toggle-application-menu', callback),
   previewReplyImages: files => ipcRenderer.invoke('reply-image-previews', files),
   attachReplyImages: request => ipcRenderer.invoke('reply-attach-images', request),
   chooseTemplateImages: () => ipcRenderer.invoke('choose-template-images'),
