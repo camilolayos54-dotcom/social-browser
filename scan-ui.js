@@ -62,7 +62,8 @@ $('scan-delete-preset').onclick = () => {
 $('scan-open-search').onclick = () => {
   const term = $('scan-phrase').value.split(',').map(value => value.trim()).find(Boolean);
   if (!term) { $('scan-status').textContent = 'Indica lo que deseas buscar.'; return; }
-  const query = [term, $('scan-location').value.trim()].filter(Boolean).join(' ');
+  const location = $('scan-location').value.split(',').map(value => value.trim()).find(Boolean);
+  const query = [term, location].filter(Boolean).join(' ');
   $('facebook-scan-dialog').close(); openTab(`https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`);
 };
 $('scan-button').onclick = () => { scanDialogOwner = profile(); renderPresets(); renderFacebookScan(); $('facebook-scan-dialog').showModal(); };

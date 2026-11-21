@@ -63,10 +63,10 @@ function pageObservation(operation, options) {
   if (operation === 'scan_matches') {
     const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
     const terms = String(options.phrase || '').split(',').map(normalize).filter(Boolean);
-    const location = normalize(String(options.location || ''));
+    const locations = String(options.location || '').split(',').map(normalize).filter(Boolean);
     const exclusions = String(options.exclude || '').split(',').map(normalize).filter(Boolean);
     const since = options.since ? Date.parse(`${options.since}T00:00:00`) : null;
-    if (!terms.length || terms.some(term => term.length > 120) || location.length > 100 || exclusions.length > 20 || (options.since && Number.isNaN(since))) return { error: 'Filtros inválidos.' };
+    if (!terms.length || terms.some(term => term.length > 120) || locations.length > 20 || locations.some(location => location.length > 100) || exclusions.length > 20 || (options.since && Number.isNaN(since))) return { error: 'Filtros inválidos.' };
     const matches = [], ranges = [];
     for (const article of document.querySelectorAll('article, [role="article"]')) {
       if (matches.length >= 50) break;
@@ -85,7 +85,7 @@ function pageObservation(operation, options) {
       const normalizedText = normalize(text);
       const date = article.querySelector('time[datetime]')?.getAttribute('datetime') || '';
       const dateValue = date ? Date.parse(date) : NaN;
-      if (!terms.some(term => normalizedText.includes(term)) || (location && !normalizedText.includes(location)) || exclusions.some(term => normalizedText.includes(term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
+      if (!terms.some(term => normalizedText.includes(term)) || (locations.length && !locations.some(location => normalizedText.includes(location))) || exclusions.some(term => normalizedText.includes(term)) || (since !== null && (!Number.isFinite(dateValue) || dateValue < since))) { ranges.length = beforeRanges; continue; }
       if (ranges.length === beforeRanges) { const range = document.createRange(); range.selectNodeContents(article); ranges.push(range); }
       const links = Array.from(article.querySelectorAll('a[href]')).map(a => a.href).filter(href => {
         try { const url = new URL(href); return /(^|\.)facebook\.com$/i.test(url.hostname) && (/\/(posts|permalink)\//i.test(url.pathname) || /\/story\.php$/i.test(url.pathname) && url.searchParams.has('story_fbid')); } catch { return false; }
